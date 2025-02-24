@@ -175,22 +175,15 @@ pcall(function()
         end
     end
 
-    while Settings.AutoStats do
-        task.wait()
-        game:GetService("Players").LocalPlayer.Backpack.ServerTraits.AttemptUpgrade:FireServer(Settings.Stat)
-    end
-    
-	while Settings.NoFog do
+    while Settings.NoFog do
         task.wait()
         game.Lighting.FogEnd = 9999999999
         game.Lighting.FogStart = 9999999999
     end
 
+    while Settings.AutoStats do
+        task.wait()
+        game:GetService("Players").LocalPlayer.Backpack.ServerTraits.AttemptUpgrade:FireServer(Settings.Stat)
+    end
+    
 end)
-
-
-task.delay(5, function()
-    local discordInviter = loadstring(game:HttpGet("https://raw.githubusercontent.com/RegularVynixu/Utilities/main/Discord%20Inviter/Source.lua"))()
-    discordInviter.Join("https://discord.gg/yjHzct63qB")
-end)
-
