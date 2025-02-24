@@ -148,21 +148,44 @@ pcall(function()
     
         if game.PlaceId == 536102540 then
             for i, v in pairs(game.Workspace.Live:GetChildren()) do
-                if v:FindFirstChild("OriginalName") and v.OriginalName.Value == Settings.MobName 
-                    and v:FindFirstChild("Opos") and v:FindFirstChild("Humanoid") then
-                    -- Check if the enemy is alive and parented
-                    repeat
-                        task.wait()
-                        if (v.HumanoidRootPart.Position - v.Opos.Value).Magnitude < 0.1 then
+                if v:FindFirstChild("OriginalName") and v.OriginalName.Value == Settings.MobName and v:FindFirstChild("Opos") and v:FindFirstChild("Humanoid") then
+                    if v.Humanoid.Health <= 0 or not v.Parent then
+                    else
+                        if (v.HumanoidRootPart.Position - v.Opos.Value).Magnitude < 500 then
                             movetoobj(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5), 1000)
                             m1()
-                        end
-                    until v.Humanoid.Health <= 0 or not v.Parent  
+                        end 
+                    end
+
+                end
+            end
+        elseif game.PlaceId == 882399924 then
+            for i, v in pairs(game.Workspace.Live:GetChildren()) do
+                if v:FindFirstChild("OriginalName") and v.OriginalName.Value == Settings.MobName and v:FindFirstChild("Opos") and v:FindFirstChild("Humanoid") then
+                    if v.Humanoid.Health <= 0 or not v.Parent then
+                    else
+                        if (v.HumanoidRootPart.Position - v.Opos.Value).Magnitude < 500 then
+                            movetoobj(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5), 1000)
+                            m1()
+                        end 
+                    end
+
                 end
             end
         end
     end
+
+    while Settings.AutoStats do
+        task.wait()
+        game:GetService("Players").LocalPlayer.Backpack.ServerTraits.AttemptUpgrade:FireServer(Settings.Stat)
+    end
     
+	while Settings.NoFog do
+        task.wait()
+        game.Lighting.FogEnd = 9999999999
+        game.Lighting.FogStart = 9999999999
+    end
+
 end)
 
 
