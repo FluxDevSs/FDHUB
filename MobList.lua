@@ -19,5 +19,20 @@ MobList = {
     "Evil Saiyan [SSJ]",
     "Galactic Patrol",
     "Gorila",
+    "Imperfect Cell",
+    "Kick Boxer",
+    "Kung Fu Master",
+    "Mad Scientist",
+    "Purple Fighter", 
+    "Red Ribbon Gunner",
+    "Saibablue",
+    "Saibaman",
+    "Saibared",
+    "Scorpian",
+    "Shielded Tank",
+    "Snake",
+    "Thug",
+    "Universal Champion",
+    "Yeti"
   }
 }
