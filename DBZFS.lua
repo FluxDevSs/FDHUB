@@ -101,7 +101,7 @@ end
 
 -- Main Loop
 
---pcall(function()
+pcall(function()
 
     while Settings.AutoBroly do
         UnShiftLock()
@@ -111,10 +111,13 @@ end
         elseif game.PlaceId == 2050207304 then
             for i,v in pairs(game.Workspace.Live:GetChildren()) do
                 if v.Name == "Broly BR" then
-                    movetoobj(v.HumanoidRootPart.CFrame * CFrame.new(0,0,5), 1000)
-                    m1()
-                    eatbean()
-                    UnShiftLock()
+                    repeat
+                        task.wait()
+                        movetoobj(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2.5), 1000)
+                        m1()
+                        eatbean()
+                        UnShiftLock()
+                    until v.Humanoid.Health <= 0 or not v.Parent  
                     if v.Humanoid:FindFirstChild("DiedFromDamage") then
                         game:GetService('TeleportService'):Teleport(536102540)
                     end
@@ -142,28 +145,29 @@ end
     while Settings.AutoMob do
         UnShiftLock()
         task.wait()
-        
+    
         if game.PlaceId == 536102540 then
             for i, v in pairs(game.Workspace.Live:GetChildren()) do
-                if v:FindFirstChild("OriginalName") and v.OriginalName.Value == Settings.MobName and v:FindFirstChild("Opos") and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                    if (v.HumanoidRootPart.Position - v.Opos.Value).Magnitude < 0.1 then
-                        movetoobj(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5), 1000)
-                        m1()
-                    end
+                if v:FindFirstChild("OriginalName") and v.OriginalName.Value == Settings.MobName 
+                    and v:FindFirstChild("Opos") and v:FindFirstChild("Humanoid") then
+                    -- Check if the enemy is alive and parented
+                    repeat
+                        task.wait()
+                        if (v.HumanoidRootPart.Position - v.Opos.Value).Magnitude < 0.1 then
+                            movetoobj(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5), 1000)
+                            m1()
+                        end
+                    until v.Humanoid.Health <= 0 or not v.Parent  
                 end
             end
         end
     end
     
+end)
 
---end)
-
-
---[[ Discord Inviter
 
 task.delay(5, function()
     local discordInviter = loadstring(game:HttpGet("https://raw.githubusercontent.com/RegularVynixu/Utilities/main/Discord%20Inviter/Source.lua"))()
     discordInviter.Join("https://discord.gg/yjHzct63qB")
 end)
 
---]]
