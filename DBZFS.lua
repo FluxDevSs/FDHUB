@@ -1,10 +1,3 @@
-getgenv().Settings = {
-    AutoBroly = false, -- Auto Broly
-    HTC = false, -- Hyperbolic Time Chamber
-    AutoMob = true, -- AutoFarm Mobs
-    MobName = "Brute" -- Put Mob Name Here | Mob Name List
-}
-
 if not game:IsLoaded() then game.Loaded:Wait() end 
 
 local TweenService = game:GetService("TweenService")
@@ -149,17 +142,19 @@ end
     while Settings.AutoMob do
         UnShiftLock()
         task.wait()
+        
         if game.PlaceId == 536102540 then
-            for i,v in pairs(game.Workspace.Live:GetChildren()) do
+            for i, v in pairs(game.Workspace.Live:GetChildren()) do
                 if v:FindFirstChild("OriginalName") and v.OriginalName.Value == Settings.MobName and v:FindFirstChild("Opos") and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                    if v.HumanoidRootPart.Position == v.Opos.Value then
-                        movetoobj(v.HumanoidRootPart.CFrame * CFrame.new(0,0,5), 1000)
+                    if (v.HumanoidRootPart.Position - v.Opos.Value).Magnitude < 0.1 then
+                        movetoobj(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5), 1000)
                         m1()
                     end
                 end
             end
         end
     end
+    
 
 --end)
 
