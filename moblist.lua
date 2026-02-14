@@ -343,4 +343,34 @@ local MonsterData = {
     },
 }
 
+local First_Sea = false
+local Second_Sea = false
+local Third_Sea = false
+
+local placeId = game.PlaceId
+
+if placeId == 2753915549 then
+    First_Sea = true
+elseif placeId == 4442272183 then
+    Second_Sea = true
+elseif placeId == 7449423635 then
+    Third_Sea = true
+end
+
+function module.CheckLevel()
+    local Lv = player:WaitForChild("Data"):WaitForChild("Level").Value
+    for _, data in ipairs(MonsterData) do
+        local correctSea =
+            (First_Sea and data.Sea == "First") or
+            (Second_Sea and data.Sea == "Second") or
+            (Third_Sea and data.Sea == "Third")
+        if correctSea and Lv >= data.Min and Lv <= data.Max then
+            return data
+        end
+    end
+
+    return nil
+end
+
+
 return Module
