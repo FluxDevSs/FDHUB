@@ -1,3 +1,5 @@
+local Module = {}
+
 local MonsterData = {
 
     -- Existing
@@ -340,3 +342,5 @@ local MonsterData = {
         CFrameMon = CFrame.new(5677.6772460938,92.786109924316,4966.6323242188)
     },
 }
+
+return Module
