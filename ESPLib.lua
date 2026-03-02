@@ -1,7 +1,7 @@
 --[[
     Custom ESP Library
     Fixed-size screen-space ESP
-    Text + Box + Skeleton + HP Bars
+    Text + Box + Skeleton + HP Bars v2
     Auto cleanup
 ]]
 
@@ -237,16 +237,21 @@ RunService.RenderStepped:Connect(function()
         data.Text.Color = data.Type == "Player" and ESP.Colors.Player or ESP.Colors.Item
         data.Text.Visible = true
 
-        -- FIXED BOX ESP
+        -- TRUE FIXED-SIZE BOX (NO DISTANCE EFFECT)
         if ESP.Settings.BoxEnabled then
             local size = ESP.Settings.FixedBoxSize
+
+            -- screen-space offset only
             local targetPos = Vector2.new(
                 screenPos.X - size.X / 2,
-                screenPos.Y - size.Y * 0.45
+                screenPos.Y - size.Y * 0.5
             )
 
             if data.LastBox.Pos then
-                data.LastBox.Pos = data.LastBox.Pos:Lerp(targetPos, ESP.Settings.BoxSmoothing)
+                data.LastBox.Pos = data.LastBox.Pos:Lerp(
+                    targetPos,
+                    ESP.Settings.BoxSmoothing
+                )
             else
                 data.LastBox.Pos = targetPos
             end
