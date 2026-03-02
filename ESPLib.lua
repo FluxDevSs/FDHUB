@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Barsvvv
+    Text ESP + Box ESP + Skeleton ESP + HP Bars
     Auto cleanup built-in
 ]]
 
@@ -83,6 +83,28 @@ end
 local function WorldToScreen(pos)
     local v, onScreen = Camera:WorldToViewportPoint(pos)
     return Vector2.new(v.X, v.Y), onScreen, v.Z
+end
+
+local function GetBoundingBox(model)
+    local cf, size = model:GetBoundingBox()
+    local corners = {}
+
+    for x = -1, 1, 2 do
+        for y = -1, 1, 2 do
+            for z = -1, 1, 2 do
+                table.insert(
+                    corners,
+                    (cf * CFrame.new(
+                        size.X/2 * x,
+                        size.Y/2 * y,
+                        size.Z/2 * z
+                    )).Position
+                )
+            end
+        end
+    end
+
+    return corners
 end
 
 local function cleanup(object)
@@ -231,15 +253,41 @@ RunService.RenderStepped:Connect(function()
         data.Text.Color = ESP.Colors.Player
         data.Text.Visible = true
 
-        -- BOX
-        if ESP.Settings.BoxEnabled then
-            local scale = math.clamp(1/depth*1000,20,300)
-            data.Box.Size = Vector2.new(scale*0.6, scale)
-            data.Box.Position = screenPos - (data.Box.Size/2)
-            data.Box.Color = ESP.Colors.Box
-            data.Box.Visible = true
+        -- FULL BODY BOX ESP (CORRECT)
+        if ESP.Settings.BoxEnabled and data.Type == "Player" then
+            local char = data.Object.Character
+            if char then
+                local minX, minY = math.huge, math.huge
+                local maxX, maxY = -math.huge, -math.huge
+                local visible = false
+
+                for _, corner in ipairs(GetBoundingBox(char)) do
+                    local screen, onScreen = Camera:WorldToViewportPoint(corner)
+                    if onScreen and screen.Z > 0 then
+                        visible = true
+                        minX = math.min(minX, screen.X)
+                        minY = math.min(minY, screen.Y)
+                        maxX = math.max(maxX, screen.X)
+                        maxY = math.max(maxY, screen.Y)
+                    end
+                end
+
+                if visible then
+                    local width = maxX - minX
+                    local height = maxY - minY
+
+                    data.Box.Size = Vector2.new(width, height)
+                    data.Box.Position = Vector2.new(minX, minY)
+                    data.Box.Color = ESP.Colors.Box
+                    data.Box.Visible = true
+                else
+                    data.Box.Visible = false
+                end
+            else
+                data.Box.Visible = false
+            end
         else
-            data.Box.Visible = false
+            if data.Box then data.Box.Visible = false end
         end
 
         -- HP BAR
@@ -248,17 +296,22 @@ RunService.RenderStepped:Connect(function()
             if hum then
                 local hpPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
 
-                local fullHeight = data.Box.Size.Y
-                local hpHeight = fullHeight * hpPercent
+                local fullH = data.Box.Size.Y
+                local hpH = fullH * hpPercent
 
-                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth, hpHeight)
+                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth, hpH)
                 data.HPBar.Position =
                     Vector2.new(
                         data.Box.Position.X - ESP.Settings.HPWidth - 3,
-                        data.Box.Position.Y + (fullHeight - hpHeight)
+                        data.Box.Position.Y + (fullH - hpH)
                     )
 
-                data.HPBar.Color = Color3.fromRGB(255 * (1 - hpPercent), 255 * hpPercent, 0)
+                data.HPBar.Color = Color3.fromRGB(
+                    255 * (1 - hpPercent),
+                    255 * hpPercent,
+                    0
+                )
+
                 data.HPBar.Visible = true
             else
                 data.HPBar.Visible = false
