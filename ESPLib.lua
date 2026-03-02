@@ -1,7 +1,7 @@
 --[[
     Custom ESP Library
     Fixed-size screen-space ESP
-    Text + Box + Skeleton + HP Bars v2
+    Text + Box + Skeleton + HP Bars v3
     Auto cleanup
 ]]
 
@@ -171,6 +171,7 @@ function ESP:AddPart(part, name)
         Name = name or part.Name,
         Text = NewText(),
         Box = NewBox(),
+        LastBox = { Pos = nil }, -- ✅ REQUIRED
     }
 
     ESP.Connections[part] = part.AncestryChanged:Connect(function(_, parent)
