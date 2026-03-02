@@ -1,19 +1,16 @@
---[[
+--[[ 
     Custom ESP Library
-    Players: Fixed-size screen-space Box + Text + HP + Skeleton
-    Items: Text ONLY (no boxes, ever)
-    Auto cleanup
+    Text ESP + Box ESP + Skeleton ESP + HP Bars
+    Auto cleanup built-in
 ]]
 
 local ESP = {}
 
--- SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- ================= SETTINGS =================
 ESP.Settings = {
     Enabled = true,
 
@@ -21,11 +18,9 @@ ESP.Settings = {
     TextSize = 13,
     Font = 2,
 
-    -- Box (PLAYERS ONLY)
+    -- Box
     BoxEnabled = false,
     BoxThickness = 1.5,
-    FixedBoxSize = Vector2.new(40, 70),
-    BoxSmoothing = 0.18,
 
     -- Skeleton
     SkeletonEnabled = false,
@@ -37,19 +32,26 @@ ESP.Settings = {
 
     -- General
     MaxDistance = 5000,
+    PositionMode = "HumanoidRootPart",
+    OffsetY = 0,
+
+    -- Box dynamics
+    BoxSmoothing = 0.18,   -- 0.1 = very smooth, 0.3 = snappy
+    BoxPadding = 3,       -- pixels around character
 }
 
 ESP.Colors = {
     Player = Color3.fromRGB(255, 255, 255),
-    Item = Color3.fromRGB(0, 255, 150),
-    Box = Color3.fromRGB(255, 255, 255),
+    Item   = Color3.fromRGB(0, 255, 150),
+    Box    = Color3.fromRGB(255, 255, 255),
     Skeleton = Color3.fromRGB(255, 255, 255),
+    HP = Color3.fromRGB(255,0,0)
 }
 
 ESP.Objects = {}
 ESP.Connections = {}
 
--- ================= DRAWING HELPERS =================
+-- UTIL
 local function NewText()
     local t = Drawing.new("Text")
     t.Visible = false
@@ -76,23 +78,37 @@ local function NewLine()
 end
 
 local function NewHPBar()
-    local b = Drawing.new("Square")
-    b.Visible = false
-    b.Filled = true
-    return b
+    local bar = Drawing.new("Square")
+    bar.Visible = false
+    bar.Filled = true
+    return bar
 end
 
--- ================= UTIL =================
 local function WorldToScreen(pos)
     local v, onScreen = Camera:WorldToViewportPoint(pos)
     return Vector2.new(v.X, v.Y), onScreen, v.Z
 end
 
-local function safeW2S(part)
-    if not part then return nil end
-    local v, onScreen = Camera:WorldToViewportPoint(part.Position)
-    if not onScreen or v.Z <= 0 then return nil end
-    return Vector2.new(v.X, v.Y)
+local function GetBoundingBox(model)
+    local cf, size = model:GetBoundingBox()
+    local corners = {}
+
+    for x = -1, 1, 2 do
+        for y = -1, 1, 2 do
+            for z = -1, 1, 2 do
+                table.insert(
+                    corners,
+                    (cf * CFrame.new(
+                        size.X/2 * x,
+                        size.Y/2 * y,
+                        size.Z/2 * z
+                    )).Position
+                )
+            end
+        end
+    end
+
+    return corners
 end
 
 local function cleanup(object)
@@ -102,7 +118,6 @@ local function cleanup(object)
     if data.Text then data.Text:Remove() end
     if data.Box then data.Box:Remove() end
     if data.HPBar then data.HPBar:Remove() end
-
     if data.SkeletonLines then
         for _, l in pairs(data.SkeletonLines) do
             l:Remove()
@@ -117,19 +132,51 @@ local function cleanup(object)
     ESP.Objects[object] = nil
 end
 
--- ================= PUBLIC API =================
-function ESP:SetEnabled(v) ESP.Settings.Enabled = v end
+local function safeW2S(part)
+    if not part then return nil end
+    local v, onScreen = Camera:WorldToViewportPoint(part.Position)
+    if not onScreen or v.Z <= 0 then return nil end
+    return Vector2.new(v.X, v.Y)
+end
+
+-- PUBLIC SETTERS
+function ESP:SetEnabled(v)
+    ESP.Settings.Enabled = v
+    if not v then
+        for _, d in pairs(ESP.Objects) do
+            d.Text.Visible = false
+            if d.Box then d.Box.Visible = false end
+            if d.HPBar then d.HPBar.Visible = false end
+            if d.SkeletonLines then
+                for _, l in pairs(d.SkeletonLines) do l.Visible = false end
+            end
+        end
+    end
+end
+
+function ESP:SetPositionMode(v)
+    if v == "Head" or v == "HumanoidRootPart" then
+        ESP.Settings.PositionMode = v
+    end
+end
+
+function ESP:SetYOffset(v)
+    if typeof(v) == "number" then
+        ESP.Settings.OffsetY = v
+    end
+end
+
 function ESP:SetBoxEnabled(v) ESP.Settings.BoxEnabled = v end
 function ESP:SetSkeletonEnabled(v) ESP.Settings.SkeletonEnabled = v end
 function ESP:SetHPEnabled(v) ESP.Settings.HPEnabled = v end
 
--- ================= ADD OBJECTS =================
+-- ADD OBJECTS
 function ESP:AddPlayer(player)
     if player == LocalPlayer then return end
     if ESP.Objects[player] then return end
 
     local skeletonLines = {}
-    for i = 1, 10 do
+    for i = 1,10 do
         skeletonLines[i] = NewLine()
     end
 
@@ -140,20 +187,20 @@ function ESP:AddPlayer(player)
         Box = NewBox(),
         HPBar = NewHPBar(),
         SkeletonLines = skeletonLines,
-        LastBox = { Pos = nil },
+        LastBox = { Pos = nil, Size = nil }
     }
 end
 
--- ITEMS = TEXT ONLY
 function ESP:AddPart(part, name)
     if not part or not part:IsA("BasePart") then return end
     if ESP.Objects[part] then return end
 
     ESP.Objects[part] = {
-        Type = "Item",
+        Type = "Part",
         Object = part,
         Name = name or part.Name,
         Text = NewText(),
+        Box = NewBox()
     }
 
     ESP.Connections[part] = part.AncestryChanged:Connect(function(_, parent)
@@ -167,100 +214,131 @@ function ESP:Remove(object)
     cleanup(object)
 end
 
--- ================= RENDER LOOP =================
+-- RENDER LOOP
 RunService.RenderStepped:Connect(function()
     if not ESP.Settings.Enabled then return end
 
     for _, data in pairs(ESP.Objects) do
         local worldPos
+        local root
 
-        -- ===== PLAYER =====
         if data.Type == "Player" then
             local char = data.Object.Character
-            local head = char and char:FindFirstChild("Head")
-            if not head then
-                if data.Text then data.Text.Visible = false end
-                if data.Box then data.Box.Visible = false end
-                if data.HPBar then data.HPBar.Visible = false end
-                for _, l in pairs(data.SkeletonLines) do l.Visible = false end
+            root = char and char:FindFirstChild(ESP.Settings.PositionMode)
+            if not root then
+                data.Text.Visible = false
+                data.Box.Visible = false
+                data.HPBar.Visible = false
+                if data.SkeletonLines then
+                    for _, l in pairs(data.SkeletonLines) do l.Visible = false end
+                end
                 continue
             end
-            worldPos = head.Position
-
-        -- ===== ITEM =====
+            worldPos = root.Position + Vector3.new(0, ESP.Settings.OffsetY, 0)
         else
-            if not data.Object:IsDescendantOf(workspace) then
-                cleanup(data.Object)
+            root = data.Object
+            if not root:IsDescendantOf(workspace) then
+                cleanup(root)
                 continue
             end
-            worldPos = data.Object.Position
+            worldPos = root.Position + Vector3.new(0, ESP.Settings.OffsetY, 0)
         end
 
-        local screenPos, onScreen, _ = WorldToScreen(worldPos)
+        local screenPos, onScreen, depth = WorldToScreen(worldPos)
         local dist = (Camera.CFrame.Position - worldPos).Magnitude
 
         if not onScreen or dist > ESP.Settings.MaxDistance then
-            if data.Text then data.Text.Visible = false end
-            if data.Type == "Player" then
-                data.Box.Visible = false
-                data.HPBar.Visible = false
+            data.Text.Visible = false
+            if data.Box then data.Box.Visible = false end
+            if data.HPBar then data.HPBar.Visible = false end
+            if data.SkeletonLines then
                 for _, l in pairs(data.SkeletonLines) do l.Visible = false end
             end
             continue
         end
 
-        -- ================= TEXT =================
-        if data.Type == "Player" then
-            data.Text.Text = string.format("%s [%.0fm]", data.Object.Name, dist)
-            data.Text.Color = ESP.Colors.Player
-        else
-            data.Text.Text = string.format("%s [%.0fm]", data.Name, dist)
-            data.Text.Color = ESP.Colors.Item
-        end
-
-        data.Text.Position = Vector2.new(screenPos.X, screenPos.Y)
+        -- TEXT
+        data.Text.Text = (data.Type == "Player") and
+            string.format("%s [%.0fm]", data.Object.Name, dist) or
+            string.format("%s [%.0fm]", data.Name, dist)
+        data.Text.Position = screenPos
+        data.Text.Color = ESP.Colors.Player
         data.Text.Visible = true
 
-        -- ================= PLAYER BOX (FIXED SIZE) =================
-        if data.Type == "Player" and ESP.Settings.BoxEnabled then
-            local size = ESP.Settings.FixedBoxSize
+-- DYNAMIC FULL BODY BOX (SMOOTH)
+        if ESP.Settings.BoxEnabled and data.Type == "Player" then
+            local char = data.Object.Character
+            if char then
+                local minX, minY = math.huge, math.huge
+                local maxX, maxY = -math.huge, -math.huge
+                local visible = false
 
-            local targetPos = Vector2.new(
-                screenPos.X - size.X / 2,
-                screenPos.Y - size.Y * 0.35
-            )
+                for _, corner in ipairs(GetBoundingBox(char)) do
+                    local v, onScreen = Camera:WorldToViewportPoint(corner)
+                    if onScreen and v.Z > 0 then
+                        visible = true
+                        minX = math.min(minX, v.X)
+                        minY = math.min(minY, v.Y)
+                        maxX = math.max(maxX, v.X)
+                        maxY = math.max(maxY, v.Y)
+                    end
+                end
 
-            if data.LastBox.Pos then
-                data.LastBox.Pos = data.LastBox.Pos:Lerp(targetPos, ESP.Settings.BoxSmoothing)
+                if visible then
+                    -- padding
+                    minX -= ESP.Settings.BoxPadding
+                    minY -= ESP.Settings.BoxPadding
+                    maxX += ESP.Settings.BoxPadding
+                    maxY += ESP.Settings.BoxPadding
+
+                    local targetPos = Vector2.new(minX, minY)
+                    local targetSize = Vector2.new(maxX - minX, maxY - minY)
+
+                    -- smooth movement
+                    if data.LastBox.Pos then
+                        data.LastBox.Pos = data.LastBox.Pos:Lerp(targetPos, ESP.Settings.BoxSmoothing)
+                        data.LastBox.Size = data.LastBox.Size:Lerp(targetSize, ESP.Settings.BoxSmoothing)
+                    else
+                        data.LastBox.Pos = targetPos
+                        data.LastBox.Size = targetSize
+                    end
+
+                    data.Box.Position = data.LastBox.Pos
+                    data.Box.Size = data.LastBox.Size
+                    data.Box.Color = ESP.Colors.Box
+                    data.Box.Visible = true
+                else
+                    data.Box.Visible = false
+                end
             else
-                data.LastBox.Pos = targetPos
+                data.Box.Visible = false
             end
-
-            data.Box.Size = size
-            data.Box.Position = data.LastBox.Pos
-            data.Box.Color = ESP.Colors.Box
-            data.Box.Visible = true
-
-            data.Text.Position = Vector2.new(screenPos.X, targetPos.Y - 14)
         else
             if data.Box then data.Box.Visible = false end
         end
 
-        -- ================= HP BAR =================
-        if data.Type == "Player" and ESP.Settings.HPEnabled and data.Box.Visible then
-            local hum = data.Object.Character:FindFirstChildOfClass("Humanoid")
+        -- HP BAR
+        if ESP.Settings.HPEnabled and data.Type == "Player" and data.Box.Visible then
+            local hum = data.Object.Character and data.Object.Character:FindFirstChildOfClass("Humanoid")
             if hum then
-                local hp = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                local hpPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+
                 local fullH = data.Box.Size.Y
-                local hpH = fullH * hp
+                local hpH = fullH * hpPercent
 
                 data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth, hpH)
-                data.HPBar.Position = Vector2.new(
-                    data.Box.Position.X - ESP.Settings.HPWidth - 3,
-                    data.Box.Position.Y + (fullH - hpH)
+                data.HPBar.Position =
+                    Vector2.new(
+                        data.Box.Position.X - ESP.Settings.HPWidth - 3,
+                        data.Box.Position.Y + (fullH - hpH)
+                    )
+
+                data.HPBar.Color = Color3.fromRGB(
+                    255 * (1 - hpPercent),
+                    255 * hpPercent,
+                    0
                 )
 
-                data.HPBar.Color = Color3.fromRGB(255 * (1 - hp), 255 * hp, 0)
                 data.HPBar.Visible = true
             else
                 data.HPBar.Visible = false
@@ -269,45 +347,53 @@ RunService.RenderStepped:Connect(function()
             if data.HPBar then data.HPBar.Visible = false end
         end
 
-        -- ================= SKELETON =================
-        if data.Type == "Player" and ESP.Settings.SkeletonEnabled then
+        -- SKELETON ESP
+        if ESP.Settings.SkeletonEnabled and data.Type == "Player" then
             local char = data.Object.Character
-            local joints = {
-                {char.Head, char.UpperTorso},
-                {char.UpperTorso, char.LowerTorso},
-                {char.UpperTorso, char.LeftUpperArm},
-                {char.LeftUpperArm, char.LeftLowerArm},
-                {char.UpperTorso, char.RightUpperArm},
-                {char.RightUpperArm, char.RightLowerArm},
-                {char.LowerTorso, char.LeftUpperLeg},
-                {char.LeftUpperLeg, char.LeftLowerLeg},
-                {char.LowerTorso, char.RightUpperLeg},
-                {char.RightUpperLeg, char.RightLowerLeg},
-            }
+            if char then
+                local joints = {
+                    {char.Head, char.UpperTorso},
+                    {char.UpperTorso, char.LowerTorso},
 
-            for i, joint in ipairs(joints) do
-                local a = safeW2S(joint[1])
-                local b = safeW2S(joint[2])
-                local line = data.SkeletonLines[i]
+                    {char.UpperTorso, char.LeftUpperArm},
+                    {char.LeftUpperArm, char.LeftLowerArm},
 
-                if a and b then
-                    line.From = a
-                    line.To = b
-                    line.Color = ESP.Colors.Skeleton
-                    line.Visible = true
-                else
-                    line.Visible = false
+                    {char.UpperTorso, char.RightUpperArm},
+                    {char.RightUpperArm, char.RightLowerArm},
+
+                    {char.LowerTorso, char.LeftUpperLeg},
+                    {char.LeftUpperLeg, char.LeftLowerLeg},
+
+                    {char.LowerTorso, char.RightUpperLeg},
+                    {char.RightUpperLeg, char.RightLowerLeg}
+                }
+
+                for i, joint in ipairs(joints) do
+                    local a = safeW2S(joint[1])
+                    local b = safeW2S(joint[2])
+
+                    local line = data.SkeletonLines[i]
+                    if a and b then
+                        line.From = a
+                        line.To = b
+                        line.Color = ESP.Colors.Skeleton
+                        line.Visible = true
+                    else
+                        line.Visible = false
+                    end
                 end
             end
         else
             if data.SkeletonLines then
-                for _, l in pairs(data.SkeletonLines) do l.Visible = false end
+                for _, l in pairs(data.SkeletonLines) do
+                    l.Visible = false
+                end
             end
         end
     end
 end)
 
--- ================= PLAYER AUTO =================
+-- PLAYER AUTO
 for _, p in ipairs(Players:GetPlayers()) do
     ESP:AddPlayer(p)
 end
