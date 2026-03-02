@@ -1,10 +1,9 @@
 --[[ 
     Custom ESP Library
-    Typed fully as requested
+    FINAL FIXED VERSION
 ]]
 
 local ESP = {}
-ESP.__index = ESP
 
 -- Services
 local Players = game:GetService("Players")
@@ -12,7 +11,7 @@ local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Settings
+-- ================= SETTINGS =================
 ESP.Settings = {
     Enabled = true,
     TextSize = 13,
@@ -27,81 +26,79 @@ ESP.Colors = {
 
 ESP.Objects = {}
 
--- Utility functions
-local function NewDrawing(type, props)
-    local obj = Drawing.new(type)
-    for i, v in pairs(props) do
-        obj[i] = v
-    end
-    return obj
+-- ================= UTIL =================
+local function NewText()
+    local t = Drawing.new("Text")
+    t.Visible = false
+    t.Center = true
+    t.Outline = true
+    t.Font = ESP.Settings.Font
+    t.Size = ESP.Settings.TextSize
+    return t
 end
 
 local function WorldToScreen(pos)
-    local vec, onScreen = Camera:WorldToViewportPoint(pos)
-    return Vector2.new(vec.X, vec.Y), onScreen, vec.Z
+    local v, onScreen = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(v.X, v.Y), onScreen
 end
 
--- Create ESP object
-function ESP:_create(object, name, color)
-    local text = NewDrawing("Text", {
-        Visible = false,
-        Center = true,
-        Outline = true,
-        Font = self.Settings.Font,
-        Size = self.Settings.TextSize,
-        Color = color
-    })
+-- ================= CORE =================
+function ESP:AddPlayer(player)
+    if player == LocalPlayer then return end
+    if ESP.Objects[player] then return end
 
-    self.Objects[object] = {
-        Object = object,
-        Name = name,
-        Color = color,
-        Text = text
+    ESP.Objects[player] = {
+        Type = "Player",
+        Object = player,
+        Text = NewText()
     }
 end
 
--- Public API
-function ESP:AddPlayer(player)
-    if player == LocalPlayer then return end
-    self:_create(player, player.Name, self.Colors.Player)
-end
-
 function ESP:AddPart(part, name)
-    self:_create(part, name or part.Name, self.Colors.Item)
+    if ESP.Objects[part] then return end
+
+    ESP.Objects[part] = {
+        Type = "Part",
+        Object = part,
+        Name = name or part.Name,
+        Text = NewText()
+    }
 end
 
 function ESP:Remove(object)
-    local data = self.Objects[object]
-    if data then
-        data.Text:Remove()
-        self.Objects[object] = nil
-    end
+    local data = ESP.Objects[object]
+    if not data then return end
+
+    data.Text.Visible = false
+    data.Text:Remove()
+    ESP.Objects[object] = nil
 end
 
-function ESP:Clear()
-    for _, data in pairs(self.Objects) do
-        data.Text:Remove()
-    end
-    table.clear(self.Objects)
-end
+function ESP:SetEnabled(state)
+    ESP.Settings.Enabled = state
 
--- Render loop
-RunService.RenderStepped:Connect(function()
-    if not ESP.Settings.Enabled then
+    if not state then
         for _, data in pairs(ESP.Objects) do
             data.Text.Visible = false
         end
+    end
+end
+
+-- ================= RENDER LOOP =================
+RunService.RenderStepped:Connect(function()
+    -- HARD STOP
+    if ESP.Settings.Enabled ~= true then
         return
     end
 
-    for object, data in pairs(ESP.Objects) do
+    for _, data in pairs(ESP.Objects) do
         local root
 
-        if typeof(object) == "Instance" and object:IsA("Player") then
-            local char = object.Character
+        if data.Type == "Player" then
+            local char = data.Object.Character
             root = char and char:FindFirstChild("HumanoidRootPart")
-        elseif typeof(object) == "Instance" and object:IsA("BasePart") then
-            root = object
+        else
+            root = data.Object
         end
 
         if not root then
@@ -109,13 +106,19 @@ RunService.RenderStepped:Connect(function()
             continue
         end
 
-        local screenPos, onScreen, depth = WorldToScreen(root.Position)
-        local distance = (Camera.CFrame.Position - root.Position).Magnitude
+        local pos, onScreen = WorldToScreen(root.Position)
+        local dist = (Camera.CFrame.Position - root.Position).Magnitude
 
-        if onScreen and distance <= ESP.Settings.MaxDistance then
-            data.Text.Position = screenPos
-            data.Text.Text = string.format("%s [%.0fm]", data.Name, distance)
-            data.Text.Color = data.Color
+        if onScreen and dist <= ESP.Settings.MaxDistance then
+            data.Text.Text = (data.Type == "Player")
+                and string.format("%s [%.0fm]", data.Object.Name, dist)
+                or string.format("%s [%.0fm]", data.Name, dist)
+
+            data.Text.Position = pos
+            data.Text.Color = (data.Type == "Player")
+                and ESP.Colors.Player
+                or ESP.Colors.Item
+
             data.Text.Visible = true
         else
             data.Text.Visible = false
@@ -123,18 +126,17 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Player handling
-Players.PlayerAdded:Connect(function(player)
-    ESP:AddPlayer(player)
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-    ESP:Remove(player)
-end)
-
--- Init
-for _, player in ipairs(Players:GetPlayers()) do
-    ESP:AddPlayer(player)
+-- ================= PLAYER AUTO =================
+for _, p in ipairs(Players:GetPlayers()) do
+    ESP:AddPlayer(p)
 end
+
+Players.PlayerAdded:Connect(function(p)
+    ESP:AddPlayer(p)
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    ESP:Remove(p)
+end)
 
 return ESP
