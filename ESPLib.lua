@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v3
     Auto cleanup built-in
 ]]
 
@@ -34,6 +34,10 @@ ESP.Settings = {
     MaxDistance = 5000,
     PositionMode = "HumanoidRootPart",
     OffsetY = 0
+
+    -- Box dynamics
+    BoxSmoothing = 0.18,   -- 0.1 = very smooth, 0.3 = snappy
+    BoxPadding = 3,       -- pixels around character
 }
 
 ESP.Colors = {
@@ -128,6 +132,13 @@ local function cleanup(object)
     ESP.Objects[object] = nil
 end
 
+local function safeW2S(part)
+    if not part then return nil end
+    local v, onScreen = Camera:WorldToViewportPoint(part.Position)
+    if not onScreen or v.Z <= 0 then return nil end
+    return Vector2.new(v.X, v.Y)
+end
+
 -- PUBLIC SETTERS
 function ESP:SetEnabled(v)
     ESP.Settings.Enabled = v
@@ -165,7 +176,7 @@ function ESP:AddPlayer(player)
     if ESP.Objects[player] then return end
 
     local skeletonLines = {}
-    for i = 1,6 do -- torso+arms+legs
+    for i = 1,10 do
         skeletonLines[i] = NewLine()
     end
 
@@ -175,7 +186,8 @@ function ESP:AddPlayer(player)
         Text = NewText(),
         Box = NewBox(),
         HPBar = NewHPBar(),
-        SkeletonLines = skeletonLines
+        SkeletonLines = skeletonLines,
+        LastBox = { Pos = nil, Size = nil }
     }
 end
 
@@ -253,7 +265,7 @@ RunService.RenderStepped:Connect(function()
         data.Text.Color = ESP.Colors.Player
         data.Text.Visible = true
 
-        -- FULL BODY BOX ESP (CORRECT)
+-- DYNAMIC FULL BODY BOX (SMOOTH)
         if ESP.Settings.BoxEnabled and data.Type == "Player" then
             local char = data.Object.Character
             if char then
@@ -262,22 +274,37 @@ RunService.RenderStepped:Connect(function()
                 local visible = false
 
                 for _, corner in ipairs(GetBoundingBox(char)) do
-                    local screen, onScreen = Camera:WorldToViewportPoint(corner)
-                    if onScreen and screen.Z > 0 then
+                    local v, onScreen = Camera:WorldToViewportPoint(corner)
+                    if onScreen and v.Z > 0 then
                         visible = true
-                        minX = math.min(minX, screen.X)
-                        minY = math.min(minY, screen.Y)
-                        maxX = math.max(maxX, screen.X)
-                        maxY = math.max(maxY, screen.Y)
+                        minX = math.min(minX, v.X)
+                        minY = math.min(minY, v.Y)
+                        maxX = math.max(maxX, v.X)
+                        maxY = math.max(maxY, v.Y)
                     end
                 end
 
                 if visible then
-                    local width = maxX - minX
-                    local height = maxY - minY
+                    -- padding
+                    minX -= ESP.Settings.BoxPadding
+                    minY -= ESP.Settings.BoxPadding
+                    maxX += ESP.Settings.BoxPadding
+                    maxY += ESP.Settings.BoxPadding
 
-                    data.Box.Size = Vector2.new(width, height)
-                    data.Box.Position = Vector2.new(minX, minY)
+                    local targetPos = Vector2.new(minX, minY)
+                    local targetSize = Vector2.new(maxX - minX, maxY - minY)
+
+                    -- smooth movement
+                    if data.LastBox.Pos then
+                        data.LastBox.Pos = data.LastBox.Pos:Lerp(targetPos, ESP.Settings.BoxSmoothing)
+                        data.LastBox.Size = data.LastBox.Size:Lerp(targetSize, ESP.Settings.BoxSmoothing)
+                    else
+                        data.LastBox.Pos = targetPos
+                        data.LastBox.Size = targetSize
+                    end
+
+                    data.Box.Position = data.LastBox.Pos
+                    data.Box.Size = data.LastBox.Size
                     data.Box.Color = ESP.Colors.Box
                     data.Box.Visible = true
                 else
