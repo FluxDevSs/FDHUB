@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars
+    Text ESP + Box ESP + Skeleton ESP + HP Barsvvv
     Auto cleanup built-in
 ]]
 
@@ -243,14 +243,22 @@ RunService.RenderStepped:Connect(function()
         end
 
         -- HP BAR
-        if ESP.Settings.HPEnabled and data.Type == "Player" then
-            local hum = data.Object.Character and data.Object.Character:FindFirstChildWhichIsA("Humanoid")
+        if ESP.Settings.HPEnabled and data.Type == "Player" and data.Box.Visible then
+            local hum = data.Object.Character and data.Object.Character:FindFirstChildOfClass("Humanoid")
             if hum then
-                local healthPerc = math.clamp(hum.Health/hum.MaxHealth,0,1)
-                local barHeight = data.Box.Size.Y * healthPerc
-                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth, data.Box.Size.Y)
-                data.HPBar.Position = data.Box.Position - Vector2.new(ESP.Settings.HPWidth+2,0)
-                data.HPBar.Color = ESP.Colors.HP
+                local hpPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+
+                local fullHeight = data.Box.Size.Y
+                local hpHeight = fullHeight * hpPercent
+
+                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth, hpHeight)
+                data.HPBar.Position =
+                    Vector2.new(
+                        data.Box.Position.X - ESP.Settings.HPWidth - 3,
+                        data.Box.Position.Y + (fullHeight - hpHeight)
+                    )
+
+                data.HPBar.Color = Color3.fromRGB(255 * (1 - hpPercent), 255 * hpPercent, 0)
                 data.HPBar.Visible = true
             else
                 data.HPBar.Visible = false
@@ -263,34 +271,43 @@ RunService.RenderStepped:Connect(function()
         if ESP.Settings.SkeletonEnabled and data.Type == "Player" then
             local char = data.Object.Character
             if char then
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                local head = char:FindFirstChild("Head")
-                local larm = char:FindFirstChild("LeftUpperArm")
-                local rarm = char:FindFirstChild("RightUpperArm")
-                local lleg = char:FindFirstChild("LeftUpperLeg")
-                local rleg = char:FindFirstChild("RightUpperLeg")
+                local joints = {
+                    {char.Head, char.UpperTorso},
+                    {char.UpperTorso, char.LowerTorso},
 
-                local points = {hrp, head, larm, rarm, lleg, rleg}
-                for i, l in ipairs(data.SkeletonLines) do
-                    if points[i] and points[i+1] then
-                        local p1, on1 = WorldToScreen(points[i].Position)
-                        local p2, on2 = WorldToScreen(points[i+1].Position)
-                        if on1 and on2 then
-                            l.From = p1
-                            l.To = p2
-                            l.Color = ESP.Colors.Skeleton
-                            l.Visible = true
-                        else
-                            l.Visible = false
-                        end
+                    {char.UpperTorso, char.LeftUpperArm},
+                    {char.LeftUpperArm, char.LeftLowerArm},
+
+                    {char.UpperTorso, char.RightUpperArm},
+                    {char.RightUpperArm, char.RightLowerArm},
+
+                    {char.LowerTorso, char.LeftUpperLeg},
+                    {char.LeftUpperLeg, char.LeftLowerLeg},
+
+                    {char.LowerTorso, char.RightUpperLeg},
+                    {char.RightUpperLeg, char.RightLowerLeg}
+                }
+
+                for i, joint in ipairs(joints) do
+                    local a = safeW2S(joint[1])
+                    local b = safeW2S(joint[2])
+
+                    local line = data.SkeletonLines[i]
+                    if a and b then
+                        line.From = a
+                        line.To = b
+                        line.Color = ESP.Colors.Skeleton
+                        line.Visible = true
                     else
-                        l.Visible = false
+                        line.Visible = false
                     end
                 end
             end
         else
             if data.SkeletonLines then
-                for _, l in pairs(data.SkeletonLines) do l.Visible = false end
+                for _, l in pairs(data.SkeletonLines) do
+                    l.Visible = false
+                end
             end
         end
     end
