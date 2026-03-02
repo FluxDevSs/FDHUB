@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v3
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v1
     Auto cleanup built-in
 ]]
 
@@ -33,7 +33,7 @@ ESP.Settings = {
     -- General
     MaxDistance = 5000,
     PositionMode = "HumanoidRootPart",
-    OffsetY = 0
+    OffsetY = 0,
 
     -- Box dynamics
     BoxSmoothing = 0.18,   -- 0.1 = very smooth, 0.3 = snappy
