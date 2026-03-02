@@ -1,7 +1,6 @@
 --[[ 
     Custom ESP Library
-    Inspired by Exunys ESP structure
-    Written from scratch
+    Typed fully as requested
 ]]
 
 local ESP = {}
@@ -28,10 +27,10 @@ ESP.Colors = {
 
 ESP.Objects = {}
 
--- Utility
+-- Utility functions
 local function NewDrawing(type, props)
     local obj = Drawing.new(type)
-    for i,v in pairs(props) do
+    for i, v in pairs(props) do
         obj[i] = v
     end
     return obj
@@ -42,7 +41,7 @@ local function WorldToScreen(pos)
     return Vector2.new(vec.X, vec.Y), onScreen, vec.Z
 end
 
--- Base ESP object
+-- Create ESP object
 function ESP:_create(object, name, color)
     local text = NewDrawing("Text", {
         Visible = false,
@@ -86,7 +85,7 @@ function ESP:Clear()
     table.clear(self.Objects)
 end
 
--- Update loop
+-- Render loop
 RunService.RenderStepped:Connect(function()
     if not ESP.Settings.Enabled then
         for _, data in pairs(ESP.Objects) do
@@ -98,10 +97,10 @@ RunService.RenderStepped:Connect(function()
     for object, data in pairs(ESP.Objects) do
         local root
 
-        if object:IsA("Player") then
+        if typeof(object) == "Instance" and object:IsA("Player") then
             local char = object.Character
             root = char and char:FindFirstChild("HumanoidRootPart")
-        elseif object:IsA("BasePart") then
+        elseif typeof(object) == "Instance" and object:IsA("BasePart") then
             root = object
         end
 
@@ -115,11 +114,7 @@ RunService.RenderStepped:Connect(function()
 
         if onScreen and distance <= ESP.Settings.MaxDistance then
             data.Text.Position = screenPos
-            data.Text.Text = string.format(
-                "%s [%.0fm]",
-                data.Name,
-                distance
-            )
+            data.Text.Text = string.format("%s [%.0fm]", data.Name, distance)
             data.Text.Color = data.Color
             data.Text.Visible = true
         else
@@ -128,7 +123,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Auto player handling
+-- Player handling
 Players.PlayerAdded:Connect(function(player)
     ESP:AddPlayer(player)
 end)
@@ -137,7 +132,7 @@ Players.PlayerRemoving:Connect(function(player)
     ESP:Remove(player)
 end)
 
--- Init existing players
+-- Init
 for _, player in ipairs(Players:GetPlayers()) do
     ESP:AddPlayer(player)
 end
