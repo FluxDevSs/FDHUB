@@ -1,7 +1,8 @@
---[[ 
-    Simple Aimbot Library
-    Camera-based (legit style)
-    Reusable & configurable
+--[[
+    Hold Right Click Aimbot Library v1
+    Screen-center based
+    FOV restricted
+    Simple & game-friendly
 ]]
 
 local Aimbot = {}
@@ -14,45 +15,63 @@ local UserInputService = game:GetService("UserInputService")
 --// Locals
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local Mouse = LocalPlayer:GetMouse()
+
+--// State
+local holdingRightClick = false
 
 --// Settings
 Aimbot.Settings = {
     Enabled = true,
-    Toggle = false, -- true = toggle, false = hold
-    AimKey = Enum.UserInputType.MouseButton2,
-
-    TeamCheck = true,
-    AliveCheck = true,
 
     AimPart = "Head", -- Head / HumanoidRootPart
-    Smoothness = 0.15, -- 0 = instant, 1 = slow
-    MaxDistance = 1000,
-    FOV = 250, -- pixels
+    FOVRadius = 200, -- pixels
+    Smoothness = 0, -- 0 = snap, 0.1+ = smooth
+    TeamCheck = false,
+    AliveCheck = true,
 }
 
---// State
-local Aiming = false
+--// Optional FOV circle (Drawing API)
+Aimbot.FOVCircle = Drawing.new("Circle")
+Aimbot.FOVCircle.Visible = true
+Aimbot.FOVCircle.Thickness = 1
+Aimbot.FOVCircle.Filled = false
+Aimbot.FOVCircle.NumSides = 64
+Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
+Aimbot.FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+Aimbot.FOVCircle.Transparency = 1
 
---// Utility
+--// Input
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        holdingRightClick = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        holdingRightClick = false
+    end
+end)
+
+--// Utils
 local function IsAlive(player)
-    local char = player.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
     return hum and hum.Health > 0
 end
 
-local function WorldToScreen(pos)
-    local vec, onScreen = Camera:WorldToViewportPoint(pos)
-    return Vector2.new(vec.X, vec.Y), onScreen
-end
+--// Get closest player to screen center
+local function GetClosestPlayerInFOV()
+    local closestPart = nil
+    local shortestDistance = math.huge
 
---// Get closest target to mouse
-local function GetClosestTarget()
-    local closest, shortest = nil, math.huge
-    local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+    local screenCenter = Vector2.new(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
+    )
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
+        if player ~= LocalPlayer and player.Character then
             if Aimbot.Settings.TeamCheck and player.Team == LocalPlayer.Team then
                 continue
             end
@@ -61,70 +80,65 @@ local function GetClosestTarget()
                 continue
             end
 
-            local char = player.Character
-            local part = char and char:FindFirstChild(Aimbot.Settings.AimPart)
+            local part = player.Character:FindFirstChild(Aimbot.Settings.AimPart)
             if not part then continue end
 
-            local screenPos, onScreen = WorldToScreen(part.Position)
-            if not onScreen then continue end
+            local screenPos, visible = Camera:WorldToViewportPoint(part.Position)
+            if not visible then continue end
 
-            local distance = (screenPos - mousePos).Magnitude
-            local worldDist = (Camera.CFrame.Position - part.Position).Magnitude
+            local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
 
-            if distance < shortest 
-                and distance <= Aimbot.Settings.FOV
-                and worldDist <= Aimbot.Settings.MaxDistance then
-                shortest = distance
-                closest = part
+            if distance <= Aimbot.Settings.FOVRadius and distance < shortestDistance then
+                shortestDistance = distance
+                closestPart = part
             end
         end
     end
 
-    return closest
+    return closestPart
 end
 
---// Input handling
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.UserInputType == Aimbot.Settings.AimKey then
-        if Aimbot.Settings.Toggle then
-            Aiming = not Aiming
+--// Main loop
+RunService.RenderStepped:Connect(function()
+    if not Aimbot.Settings.Enabled then return end
+
+    -- Update FOV circle
+    Aimbot.FOVCircle.Position = Vector2.new(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
+    )
+    Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
+
+    if not holdingRightClick then return end
+
+    local target = GetClosestPlayerInFOV()
+    if target then
+        local camPos = Camera.CFrame.Position
+        local aimCFrame = CFrame.new(camPos, target.Position)
+
+        if Aimbot.Settings.Smoothness > 0 then
+            Camera.CFrame = Camera.CFrame:Lerp(aimCFrame, Aimbot.Settings.Smoothness)
         else
-            Aiming = true
+            Camera.CFrame = aimCFrame
         end
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Aimbot.Settings.AimKey and not Aimbot.Settings.Toggle then
-        Aiming = false
-    end
-end)
-
---// Main loop
-RunService.RenderStepped:Connect(function()
-    if not Aimbot.Settings.Enabled or not Aiming then return end
-
-    local target = GetClosestTarget()
-    if not target then return end
-
-    local camPos = Camera.CFrame.Position
-    local newCFrame = CFrame.new(camPos, target.Position)
-
-    Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Aimbot.Settings.Smoothness)
-end)
-
 --// API
-function Aimbot:SetEnabled(state)
-    self.Settings.Enabled = state
+function Aimbot:SetFOV(radius)
+    self.Settings.FOVRadius = radius
 end
 
 function Aimbot:SetSmoothness(value)
     self.Settings.Smoothness = math.clamp(value, 0, 1)
 end
 
-function Aimbot:SetAimPart(partName)
-    self.Settings.AimPart = partName
+function Aimbot:SetAimPart(part)
+    self.Settings.AimPart = part
+end
+
+function Aimbot:SetEnabled(state)
+    self.Settings.Enabled = state
 end
 
 return Aimbot
