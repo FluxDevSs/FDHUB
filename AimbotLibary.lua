@@ -1,47 +1,33 @@
---[[
-    Hold Right Click Aimbot Library v1
-    Screen-center based
-    FOV restricted
-    Simple & game-friendly
-]]
-
 local Aimbot = {}
 
---// Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
---// Locals
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
---// State
 local holdingRightClick = false
 
---// Settings
 Aimbot.Settings = {
-    Enabled = true,
-
-    AimPart = "Head", -- Head / HumanoidRootPart
-    FOVRadius = 200, -- pixels
-    Smoothness = 0, -- 0 = snap, 0.1+ = smooth
+    Enabled = false,
+    AimPart = "Head",
+    FOVRadius = 200,
+    Smoothness = 0,
     TeamCheck = false,
     AliveCheck = true,
 }
 
---// Optional FOV circle (Drawing API)
 Aimbot.FOVCircle = Drawing.new("Circle")
-Aimbot.FOVCircle.Visible = true
+Aimbot.FOVCircle.Visible = false
 Aimbot.FOVCircle.Thickness = 1
 Aimbot.FOVCircle.Filled = false
 Aimbot.FOVCircle.NumSides = 64
 Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
-Aimbot.FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+Aimbot.FOVCircle.Color = Color3.fromRGB(255,255,255)
 Aimbot.FOVCircle.Transparency = 1
 
---// Input
-UserInputService.InputBegan:Connect(function(input, gp)
+UserInputService.InputBegan:Connect(function(input,gp)
     if gp then return end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         holdingRightClick = true
@@ -54,13 +40,11 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
---// Utils
 local function IsAlive(player)
     local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
     return hum and hum.Health > 0
 end
 
---// Get closest player to screen center
 local function GetClosestPlayerInFOV()
     local closestPart = nil
     local shortestDistance = math.huge
@@ -86,7 +70,7 @@ local function GetClosestPlayerInFOV()
             local screenPos, visible = Camera:WorldToViewportPoint(part.Position)
             if not visible then continue end
 
-            local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+            local distance = (Vector2.new(screenPos.X,screenPos.Y) - screenCenter).Magnitude
 
             if distance <= Aimbot.Settings.FOVRadius and distance < shortestDistance then
                 shortestDistance = distance
@@ -98,16 +82,21 @@ local function GetClosestPlayerInFOV()
     return closestPart
 end
 
---// Main loop
 RunService.RenderStepped:Connect(function()
-    if not Aimbot.Settings.Enabled then return end
-
-    -- Update FOV circle
-    Aimbot.FOVCircle.Position = Vector2.new(
+    local screenCenter = Vector2.new(
         Camera.ViewportSize.X / 2,
         Camera.ViewportSize.Y / 2
     )
+
+    Aimbot.FOVCircle.Position = screenCenter
     Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
+
+    if not Aimbot.Settings.Enabled then
+        Aimbot.FOVCircle.Visible = false
+        return
+    end
+
+    Aimbot.FOVCircle.Visible = true
 
     if not holdingRightClick then return end
 
@@ -124,13 +113,12 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
---// API
 function Aimbot:SetFOV(radius)
     self.Settings.FOVRadius = radius
 end
 
 function Aimbot:SetSmoothness(value)
-    self.Settings.Smoothness = math.clamp(value, 0, 1)
+    self.Settings.Smoothness = math.clamp(value,0,1)
 end
 
 function Aimbot:SetAimPart(part)
@@ -139,6 +127,7 @@ end
 
 function Aimbot:SetEnabled(state)
     self.Settings.Enabled = state
+    self.FOVCircle.Visible = state
 end
 
 return Aimbot
