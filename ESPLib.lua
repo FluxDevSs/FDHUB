@@ -283,12 +283,12 @@ RunService.RenderStepped:Connect(function()
             if char then
                 local minX, minY = math.huge, math.huge
                 local maxX, maxY = -math.huge, -math.huge
-                local visible = false
+                local visibleCorners = 0
 
                 for _, corner in ipairs(GetBoundingBox(char)) do
                     local v, onScreen = Camera:WorldToViewportPoint(corner)
                     if onScreen and v.Z > 0 then
-                        visible = true
+                        visibleCorners += 1
                         minX = math.min(minX, v.X)
                         minY = math.min(minY, v.Y)
                         maxX = math.max(maxX, v.X)
@@ -296,8 +296,9 @@ RunService.RenderStepped:Connect(function()
                     end
                 end
 
-                if visible then
-                    -- padding
+                -- Require at least 4 visible corners (half the box)
+                if visibleCorners >= 4 then
+
                     minX -= ESP.Settings.BoxPadding
                     minY -= ESP.Settings.BoxPadding
                     maxX += ESP.Settings.BoxPadding
@@ -306,7 +307,6 @@ RunService.RenderStepped:Connect(function()
                     local targetPos = Vector2.new(minX, minY)
                     local targetSize = Vector2.new(maxX - minX, maxY - minY)
 
-                    -- smooth movement
                     if data.LastBox.Pos then
                         data.LastBox.Pos = data.LastBox.Pos:Lerp(targetPos, ESP.Settings.BoxSmoothing)
                         data.LastBox.Size = data.LastBox.Size:Lerp(targetSize, ESP.Settings.BoxSmoothing)
