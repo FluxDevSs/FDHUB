@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v3
+    Text ESP + Box ESP + Skeleton ESP + HP Bars V4
     Auto cleanup built-in
 ]]
 
@@ -23,7 +23,7 @@ ESP.Settings = {
     BoxThickness = 1.5,
 
     -- Name
-    NameEnabled = false,
+    NameEnabled = false
 
     -- Skeleton
     SkeletonEnabled = false,
@@ -174,6 +174,10 @@ function ESP:SetHPEnabled(v)
     ESP.Settings.HPEnabled = v
 end
 
+function ESP:SetNameEnabled(v)
+    ESP.Settings.NameEnabled = v
+end
+
 ------------------------------------------------
 -- ADD OBJECTS
 ------------------------------------------------
@@ -290,6 +294,9 @@ RunService.RenderStepped:Connect(function()
 
         -- NAME ESP
         if ESP.Settings.NameEnabled then
+
+            local screenPos,onScreen,depth = WorldToScreen(worldPos)
+            local dist = (Camera.CFrame.Position - worldPos).Magnitude
 
             data.Text.Text = (data.Type == "Player") and
                 string.format("%s [%.0fm]", data.Object.Name, dist) or
@@ -445,5 +452,3 @@ RunService.RenderStepped:Connect(function()
 end)
 
 return ESP
-
-
