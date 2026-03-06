@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars 222
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2
     Auto cleanup built-in
 ]]
 
@@ -264,14 +264,13 @@ RunService.RenderStepped:Connect(function()
 
         data.Text.Color = ESP.Colors.Player
 
-        -- Lock name to bottom of box (like HP bar)
-        if data.Box and data.Box.Visible then
+        -- Always show name even if box disabled
+        if data.LastBox and data.LastBox.Pos then
             data.Text.Position = Vector2.new(
-                data.Box.Position.X + (data.Box.Size.X / 2),
-                data.Box.Position.Y + data.Box.Size.Y + 2 -- spacing below box
+                data.LastBox.Pos.X + (data.LastBox.Size.X / 2),
+                data.LastBox.Pos.Y + data.LastBox.Size.Y + 2
             )
         else
-            -- fallback (no box)
             data.Text.Position = screenPos
         end
 
@@ -279,42 +278,44 @@ RunService.RenderStepped:Connect(function()
 
         -- DYNAMIC FULL BODY BOX (SMOOTH)
         if ESP.Settings.BoxEnabled and data.Type == "Player" then
-            local char = data.Object.Character
-            if char then
-                local minX, minY = math.huge, math.huge
-                local maxX, maxY = -math.huge, -math.huge
-                local visibleCorners = 0
+-- DYNAMIC FULL BODY BOX (always calculated)
+local char = data.Object.Character
+        if char then
+            local minX, minY = math.huge, math.huge
+            local maxX, maxY = -math.huge, -math.huge
+            local visibleCorners = 0
 
-                for _, corner in ipairs(GetBoundingBox(char)) do
-                    local v, onScreen = Camera:WorldToViewportPoint(corner)
-                    if onScreen and v.Z > 0 then
-                        visibleCorners += 1
-                        minX = math.min(minX, v.X)
-                        minY = math.min(minY, v.Y)
-                        maxX = math.max(maxX, v.X)
-                        maxY = math.max(maxY, v.Y)
-                    end
+            for _, corner in ipairs(GetBoundingBox(char)) do
+                local v, onScreen = Camera:WorldToViewportPoint(corner)
+                if onScreen and v.Z > 0 then
+                    visibleCorners += 1
+                    minX = math.min(minX, v.X)
+                    minY = math.min(minY, v.Y)
+                    maxX = math.max(maxX, v.X)
+                    maxY = math.max(maxY, v.Y)
+                end
+            end
+
+            if visibleCorners >= 4 then
+
+                minX -= ESP.Settings.BoxPadding
+                minY -= ESP.Settings.BoxPadding
+                maxX += ESP.Settings.BoxPadding
+                maxY += ESP.Settings.BoxPadding
+
+                local targetPos = Vector2.new(minX, minY)
+                local targetSize = Vector2.new(maxX - minX, maxY - minY)
+
+                if data.LastBox.Pos then
+                    data.LastBox.Pos = data.LastBox.Pos:Lerp(targetPos, ESP.Settings.BoxSmoothing)
+                    data.LastBox.Size = data.LastBox.Size:Lerp(targetSize, ESP.Settings.BoxSmoothing)
+                else
+                    data.LastBox.Pos = targetPos
+                    data.LastBox.Size = targetSize
                 end
 
-                -- Require at least 4 visible corners (half the box)
-                if visibleCorners >= 4 then
-
-                    minX -= ESP.Settings.BoxPadding
-                    minY -= ESP.Settings.BoxPadding
-                    maxX += ESP.Settings.BoxPadding
-                    maxY += ESP.Settings.BoxPadding
-
-                    local targetPos = Vector2.new(minX, minY)
-                    local targetSize = Vector2.new(maxX - minX, maxY - minY)
-
-                    if data.LastBox.Pos then
-                        data.LastBox.Pos = data.LastBox.Pos:Lerp(targetPos, ESP.Settings.BoxSmoothing)
-                        data.LastBox.Size = data.LastBox.Size:Lerp(targetSize, ESP.Settings.BoxSmoothing)
-                    else
-                        data.LastBox.Pos = targetPos
-                        data.LastBox.Size = targetSize
-                    end
-
+                -- Only draw box if enabled
+                if ESP.Settings.BoxEnabled then
                     data.Box.Position = data.LastBox.Pos
                     data.Box.Size = data.LastBox.Size
                     data.Box.Color = ESP.Colors.Box
@@ -325,24 +326,25 @@ RunService.RenderStepped:Connect(function()
             else
                 data.Box.Visible = false
             end
+        end
         else
             if data.Box then data.Box.Visible = false end
         end
 
         -- HP BAR
-        if ESP.Settings.HPEnabled and data.Type == "Player" and data.Box.Visible then
+        if ESP.Settings.HPEnabled and data.Type == "Player" and data.LastBox.Pos then
             local hum = data.Object.Character and data.Object.Character:FindFirstChildOfClass("Humanoid")
             if hum then
                 local hpPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
 
-                local fullH = data.Box.Size.Y
+                local fullH = data.LastBox.Size.Y
                 local hpH = fullH * hpPercent
 
                 data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth, hpH)
                 data.HPBar.Position =
                     Vector2.new(
-                        data.Box.Position.X - ESP.Settings.HPWidth - 3,
-                        data.Box.Position.Y + (fullH - hpH)
+                        data.LastBox.Pos.X - ESP.Settings.HPWidth - 3,
+                        data.LastBox.Pos.Y + (fullH - hpH)
                     )
 
                 data.HPBar.Color = Color3.fromRGB(
@@ -410,4 +412,3 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 return ESP
-
