@@ -23,7 +23,7 @@ ESP.Settings = {
     BoxThickness = 1.5,
 
     -- Name
-    NameEnabled = false
+    NameEnabled = false,
 
     -- Skeleton
     SkeletonEnabled = false,
@@ -445,3 +445,4 @@ RunService.RenderStepped:Connect(function()
 end)
 
 return ESP
+
