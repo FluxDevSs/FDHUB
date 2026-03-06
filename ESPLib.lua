@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v1
     Auto cleanup built-in
 ]]
 
@@ -276,59 +276,59 @@ RunService.RenderStepped:Connect(function()
 
         data.Text.Visible = true
 
-        -- DYNAMIC FULL BODY BOX (SMOOTH)
-        if ESP.Settings.BoxEnabled and data.Type == "Player" then
--- DYNAMIC FULL BODY BOX (always calculated)
-local char = data.Object.Character
-        if char then
-            local minX, minY = math.huge, math.huge
-            local maxX, maxY = -math.huge, -math.huge
-            local visibleCorners = 0
+        -- DYNAMIC FULL BODY BOX (ALWAYS CALCULATED)
+        if data.Type == "Player" then
+            local char = data.Object.Character
+            if char then
+                local minX, minY = math.huge, math.huge
+                local maxX, maxY = -math.huge, -math.huge
+                local visibleCorners = 0
 
-            for _, corner in ipairs(GetBoundingBox(char)) do
-                local v, onScreen = Camera:WorldToViewportPoint(corner)
-                if onScreen and v.Z > 0 then
-                    visibleCorners += 1
-                    minX = math.min(minX, v.X)
-                    minY = math.min(minY, v.Y)
-                    maxX = math.max(maxX, v.X)
-                    maxY = math.max(maxY, v.Y)
-                end
-            end
+                for _, corner in ipairs(GetBoundingBox(char)) do
+                    local v, onScreen = Camera:WorldToViewportPoint(corner)
 
-            if visibleCorners >= 4 then
-
-                minX -= ESP.Settings.BoxPadding
-                minY -= ESP.Settings.BoxPadding
-                maxX += ESP.Settings.BoxPadding
-                maxY += ESP.Settings.BoxPadding
-
-                local targetPos = Vector2.new(minX, minY)
-                local targetSize = Vector2.new(maxX - minX, maxY - minY)
-
-                if data.LastBox.Pos then
-                    data.LastBox.Pos = data.LastBox.Pos:Lerp(targetPos, ESP.Settings.BoxSmoothing)
-                    data.LastBox.Size = data.LastBox.Size:Lerp(targetSize, ESP.Settings.BoxSmoothing)
-                else
-                    data.LastBox.Pos = targetPos
-                    data.LastBox.Size = targetSize
+                    if onScreen and v.Z > 0 then
+                        visibleCorners += 1
+                        minX = math.min(minX, v.X)
+                        minY = math.min(minY, v.Y)
+                        maxX = math.max(maxX, v.X)
+                        maxY = math.max(maxY, v.Y)
+                    end
                 end
 
-                -- Only draw box if enabled
-                if ESP.Settings.BoxEnabled then
-                    data.Box.Position = data.LastBox.Pos
-                    data.Box.Size = data.LastBox.Size
-                    data.Box.Color = ESP.Colors.Box
-                    data.Box.Visible = true
+                if visibleCorners >= 4 then
+                    minX -= ESP.Settings.BoxPadding
+                    minY -= ESP.Settings.BoxPadding
+                    maxX += ESP.Settings.BoxPadding
+                    maxY += ESP.Settings.BoxPadding
+
+                    local targetPos = Vector2.new(minX, minY)
+                    local targetSize = Vector2.new(maxX - minX, maxY - minY)
+
+                    if data.LastBox.Pos then
+                        data.LastBox.Pos = data.LastBox.Pos:Lerp(targetPos, ESP.Settings.BoxSmoothing)
+                        data.LastBox.Size = data.LastBox.Size:Lerp(targetSize, ESP.Settings.BoxSmoothing)
+                    else
+                        data.LastBox.Pos = targetPos
+                        data.LastBox.Size = targetSize
+                    end
+
+                    -- Only draw if Box ESP enabled
+                    if ESP.Settings.BoxEnabled then
+                        data.Box.Position = data.LastBox.Pos
+                        data.Box.Size = data.LastBox.Size
+                        data.Box.Color = ESP.Colors.Box
+                        data.Box.Visible = true
+                    else
+                        data.Box.Visible = false
+                    end
+
                 else
                     data.Box.Visible = false
                 end
             else
                 data.Box.Visible = false
             end
-        end
-        else
-            if data.Box then data.Box.Visible = false end
         end
 
         -- HP BAR
