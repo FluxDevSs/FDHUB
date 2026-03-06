@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v5
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.1
     Auto cleanup built-in
 ]]
 
@@ -23,7 +23,7 @@ ESP.Settings = {
     BoxThickness = 1.5,
 
     -- Name
-    NameEnabled = false
+    NameEnabled = false,
 
     -- Skeleton
     SkeletonEnabled = false,
