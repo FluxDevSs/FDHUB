@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars V4
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v5
     Auto cleanup built-in
 ]]
 
@@ -295,7 +295,6 @@ RunService.RenderStepped:Connect(function()
         -- NAME ESP
         if ESP.Settings.NameEnabled then
 
-            local screenPos,onScreen,depth = WorldToScreen(worldPos)
             local dist = (Camera.CFrame.Position - worldPos).Magnitude
 
             data.Text.Text = (data.Type == "Player") and
