@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.1
+    Text ESP + Box ESP + Skeleton ESP + HP Bars V1.2
     Auto cleanup built-in
 ]]
 
@@ -211,7 +211,8 @@ function ESP:AddPart(part,name)
         Object = part,
         Name = name or part.Name,
         Text = NewText(),
-        Box = NewBox()
+        Box = NewBox(),
+        LastBox = {Pos=nil,Size=nil}
     }
 
     ESP.Connections[part] = part.AncestryChanged:Connect(function()
@@ -303,7 +304,7 @@ RunService.RenderStepped:Connect(function()
 
             data.Text.Color = ESP.Colors.Player
 
-            if data.LastBox and data.LastBox.Pos then
+            if data.LastBox ~= nil and data.LastBox.Pos ~= nil then
                 data.Text.Position = Vector2.new(
                     data.LastBox.Pos.X + (data.LastBox.Size.X / 2),
                     data.LastBox.Pos.Y + data.LastBox.Size.Y + 2
