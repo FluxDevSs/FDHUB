@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.4
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.5
     Auto cleanup built-in
 ]]
 
@@ -447,22 +447,42 @@ RunService.RenderStepped:Connect(function()
             local char = data.Object.Character
             if char then
 
-                local joints = {
-                    {char.Head,char.UpperTorso},
-                    {char.UpperTorso,char.LowerTorso},
+                local joints
 
-                    {char.UpperTorso,char.LeftUpperArm},
-                    {char.LeftUpperArm,char.LeftLowerArm},
+                if char:FindFirstChild("UpperTorso") then
+                    -- R15
+                    joints = {
+                        {char.Head,char.UpperTorso},
+                        {char.UpperTorso,char.LowerTorso},
 
-                    {char.UpperTorso,char.RightUpperArm},
-                    {char.RightUpperArm,char.RightLowerArm},
+                        {char.UpperTorso,char.LeftUpperArm},
+                        {char.LeftUpperArm,char.LeftLowerArm},
 
-                    {char.LowerTorso,char.LeftUpperLeg},
-                    {char.LeftUpperLeg,char.LeftLowerLeg},
+                        {char.UpperTorso,char.RightUpperArm},
+                        {char.RightUpperArm,char.RightLowerArm},
 
-                    {char.LowerTorso,char.RightUpperLeg},
-                    {char.RightUpperLeg,char.RightLowerLeg}
-                }
+                        {char.LowerTorso,char.LeftUpperLeg},
+                        {char.LeftUpperLeg,char.LeftLowerLeg},
+
+                        {char.LowerTorso,char.RightUpperLeg},
+                        {char.RightUpperLeg,char.RightLowerLeg}
+                    }
+
+                else
+                    -- R6
+                    joints = {
+                        {char.Head,char.Torso},
+
+                        {char.Torso,char.Left Arm},
+                        {char.Left Arm,char.Left Leg},
+
+                        {char.Torso,char.Right Arm},
+                        {char.Right Arm,char.Right Leg},
+
+                        {char.Torso,char.Left Leg},
+                        {char.Torso,char.Right Leg}
+                    }
+                end
 
                 for i,joint in ipairs(joints) do
 
