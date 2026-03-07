@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.3
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.4
     Auto cleanup built-in
 ]]
 
@@ -15,7 +15,7 @@ ESP.Settings = {
     Enabled = true,
 
     -- Text
-    TextSize = 13,
+    TextSize = 16,
     Font = 2,
 
     -- Box
@@ -252,7 +252,20 @@ addAllPlayers()
 
 RunService.RenderStepped:Connect(function()
 
-    if not ESP.Settings.Enabled then return end
+    if not ESP.Settings.Enabled then
+        for _,data in pairs(ESP.Objects) do
+            if data.Text then data.Text.Visible = false end
+            if data.Box then data.Box.Visible = false end
+            if data.HPBar then data.HPBar.Visible = false end
+
+            if data.SkeletonLines then
+                for _,line in pairs(data.SkeletonLines) do
+                    line.Visible = false
+                end
+            end
+        end
+        return
+    end
 
     for _,data in pairs(ESP.Objects) do
 
