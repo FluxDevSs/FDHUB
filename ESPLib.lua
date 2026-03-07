@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars V1.2
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.3
     Auto cleanup built-in
 ]]
 
@@ -284,8 +284,21 @@ RunService.RenderStepped:Connect(function()
 
         if not onScreen then
             data.Text.Visible = false
-            if data.Box then data.Box.Visible = false end
-            if data.HPBar then data.HPBar.Visible = false end
+
+            if data.Box then
+                data.Box.Visible = false
+            end
+
+            if data.HPBar then
+                data.HPBar.Visible = false
+            end
+
+            if data.SkeletonLines then
+                for _,line in pairs(data.SkeletonLines) do
+                    line.Visible = false
+                end
+            end
+
             continue
         end
 
@@ -293,30 +306,39 @@ RunService.RenderStepped:Connect(function()
         -- TEXT
         ------------------------------------------------
 
-        -- NAME ESP
-        if ESP.Settings.NameEnabled then
+        local dist = (Camera.CFrame.Position - worldPos).Magnitude
 
-            local dist = (Camera.CFrame.Position - worldPos).Magnitude
+        -- PLAYER NAME ESP
+        if data.Type == "Player" then
 
-            data.Text.Text = (data.Type == "Player") and
-                string.format("%s [%.0fm]", data.Object.Name, dist) or
-                string.format("%s [%.0fm]", data.Name, dist)
+            if ESP.Settings.NameEnabled then
 
-            data.Text.Color = ESP.Colors.Player
+                data.Text.Text = string.format("%s [%.0fm]", data.Object.Name, dist)
+                data.Text.Color = ESP.Colors.Player
 
-            if data.LastBox ~= nil and data.LastBox.Pos ~= nil then
-                data.Text.Position = Vector2.new(
-                    data.LastBox.Pos.X + (data.LastBox.Size.X / 2),
-                    data.LastBox.Pos.Y + data.LastBox.Size.Y + 2
-                )
+                if data.LastBox and data.LastBox.Pos then
+                    data.Text.Position = Vector2.new(
+                        data.LastBox.Pos.X + (data.LastBox.Size.X / 2),
+                        data.LastBox.Pos.Y + data.LastBox.Size.Y + 2
+                    )
+                else
+                    data.Text.Position = screenPos
+                end
+
+                data.Text.Visible = true
+
             else
-                data.Text.Position = screenPos
+                data.Text.Visible = false
             end
 
+        -- ITEM / WEAPON ESP (always show text)
+        else
+
+            data.Text.Text = string.format("%s [%.0fm]", data.Name, dist)
+            data.Text.Color = ESP.Colors.Item
+            data.Text.Position = screenPos
             data.Text.Visible = true
 
-        else
-            data.Text.Visible = false
         end
 
         ------------------------------------------------
