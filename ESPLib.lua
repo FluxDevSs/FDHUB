@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.5
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.6
     Auto cleanup built-in
 ]]
 
@@ -452,50 +452,54 @@ RunService.RenderStepped:Connect(function()
                 if char:FindFirstChild("UpperTorso") then
                     -- R15
                     joints = {
-                        {char.Head,char.UpperTorso},
-                        {char.UpperTorso,char.LowerTorso},
+                        {char:FindFirstChild("Head"),char:FindFirstChild("UpperTorso")},
+                        {char:FindFirstChild("UpperTorso"),char:FindFirstChild("LowerTorso")},
 
-                        {char.UpperTorso,char.LeftUpperArm},
-                        {char.LeftUpperArm,char.LeftLowerArm},
+                        {char:FindFirstChild("UpperTorso"),char:FindFirstChild("LeftUpperArm")},
+                        {char:FindFirstChild("LeftUpperArm"),char:FindFirstChild("LeftLowerArm")},
 
-                        {char.UpperTorso,char.RightUpperArm},
-                        {char.RightUpperArm,char.RightLowerArm},
+                        {char:FindFirstChild("UpperTorso"),char:FindFirstChild("RightUpperArm")},
+                        {char:FindFirstChild("RightUpperArm"),char:FindFirstChild("RightLowerArm")},
 
-                        {char.LowerTorso,char.LeftUpperLeg},
-                        {char.LeftUpperLeg,char.LeftLowerLeg},
+                        {char:FindFirstChild("LowerTorso"),char:FindFirstChild("LeftUpperLeg")},
+                        {char:FindFirstChild("LeftUpperLeg"),char:FindFirstChild("LeftLowerLeg")},
 
-                        {char.LowerTorso,char.RightUpperLeg},
-                        {char.RightUpperLeg,char.RightLowerLeg}
+                        {char:FindFirstChild("LowerTorso"),char:FindFirstChild("RightUpperLeg")},
+                        {char:FindFirstChild("RightUpperLeg"),char:FindFirstChild("RightLowerLeg")}
                     }
 
                 else
                     -- R6
                     joints = {
-                        {char.Head,char.Torso},
+                        {char:FindFirstChild("Head"),char:FindFirstChild("Torso")},
 
-                        {char.Torso,char.Left Arm},
-                        {char.Left Arm,char.Left Leg},
+                        {char:FindFirstChild("Torso"),char:FindFirstChild("Left Arm")},
+                        {char:FindFirstChild("Left Arm"),char:FindFirstChild("Left Leg")},
 
-                        {char.Torso,char.Right Arm},
-                        {char.Right Arm,char.Right Leg},
+                        {char:FindFirstChild("Torso"),char:FindFirstChild("Right Arm")},
+                        {char:FindFirstChild("Right Arm"),char:FindFirstChild("Right Leg")},
 
-                        {char.Torso,char.Left Leg},
-                        {char.Torso,char.Right Leg}
+                        {char:FindFirstChild("Torso"),char:FindFirstChild("Left Leg")},
+                        {char:FindFirstChild("Torso"),char:FindFirstChild("Right Leg")}
                     }
                 end
 
                 for i,joint in ipairs(joints) do
 
-                    local a = safeW2S(joint[1])
-                    local b = safeW2S(joint[2])
-
                     local line = data.SkeletonLines[i]
 
-                    if a and b then
-                        line.From = a
-                        line.To = b
-                        line.Color = ESP.Colors.Skeleton
-                        line.Visible = true
+                    if joint[1] and joint[2] then
+                        local a = safeW2S(joint[1])
+                        local b = safeW2S(joint[2])
+
+                        if a and b then
+                            line.From = a
+                            line.To = b
+                            line.Color = ESP.Colors.Skeleton
+                            line.Visible = true
+                        else
+                            line.Visible = false
+                        end
                     else
                         line.Visible = false
                     end
