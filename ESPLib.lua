@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.1
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.2
     Auto cleanup built-in 
 ]]
 
@@ -17,7 +17,8 @@ ESP.Settings = {
     TextSize = 16,
     Font = 2,
 
-    BoxEnabled = false,
+    PlayerBoxEnabled = false,
+    NPCBoxEnabled = false,
     BoxThickness = 1.5,
 
     NameEnabled = false,
@@ -335,7 +336,9 @@ RunService.RenderStepped:Connect(function()
         elseif data.Type == "NPC" then
 
             char = data.Object
-            root = char:FindFirstChild("HumanoidRootPart")
+
+            root =
+                char:FindFirstChild("HumanoidRootPart")
                 or char.PrimaryPart
                 or char:FindFirstChildWhichIsA("BasePart")
 
@@ -398,7 +401,12 @@ RunService.RenderStepped:Connect(function()
 
         end
 
-        if (data.Type == "Player" or data.Type == "NPC") and ESP.Settings.BoxEnabled then
+        ------------------------------------------------
+        -- BOX
+        ------------------------------------------------
+
+        if (data.Type == "Player" and ESP.Settings.PlayerBoxEnabled)
+        or (data.Type == "NPC" and ESP.Settings.NPCBoxEnabled) then
 
             local minX,minY = math.huge,math.huge
             local maxX,maxY = -math.huge,-math.huge
