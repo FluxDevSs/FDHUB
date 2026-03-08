@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.1
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.2
     Death safe + cleanup safe
 ]]
 
@@ -199,6 +199,28 @@ function ESP:AddPlayer(player)
         HPBar = NewHPBar(),
         SkeletonLines = skeletonLines
     }
+
+    player.CharacterAdded:Connect(function(char)
+        local hum = char:WaitForChild("Humanoid",5)
+        if hum then
+            hum.Died:Connect(function()
+                local data = ESP.Objects[player]
+                if not data then return end
+
+                if data.Text then data.Text.Visible = false end
+                if data.Box then data.Box.Visible = false end
+                if data.HPBar then data.HPBar.Visible = false end
+
+                if data.SkeletonLines then
+                    for _,l in pairs(data.SkeletonLines) do
+                        l.Visible = false
+                    end
+                end
+
+            end)
+        end
+
+    end)
 end
 
 ------------------------------------------------
@@ -302,10 +324,26 @@ RunService.RenderStepped:Connect(function()
         local root
         local model
 
-        if data.Type == "Player" then
-            model = data.Object.Character
-            if not model or not model.Parent then continue end
-            root = model:FindFirstChild(ESP.Settings.PositionMode)
+    if data.Type == "Player" then
+
+        model = data.Object.Character
+
+        if not model or not model.Parent then
+
+            if data.Text then data.Text.Visible = false end
+            if data.Box then data.Box.Visible = false end
+            if data.HPBar then data.HPBar.Visible = false end
+
+            if data.SkeletonLines then
+                for _,l in pairs(data.SkeletonLines) do
+                    l.Visible = false
+                end
+            end
+
+            continue
+        end
+
+        root = model:FindFirstChild(ESP.Settings.PositionMode)
 
         elseif data.Type == "NPC" then
             model = data.Object
