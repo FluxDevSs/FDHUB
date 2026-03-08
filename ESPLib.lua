@@ -1,7 +1,7 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.9
-    Auto cleanup built-in 
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.0
+    Auto cleanup built-in
 ]]
 
 local ESP = {}
@@ -315,15 +315,21 @@ RunService.RenderStepped:Connect(function()
 
             worldPos = root.Position
 
-        else
+            elseif data.Type == "NPC" then
 
-            root = data.Object
-            if not root:IsDescendantOf(workspace) then
-                cleanup(root)
+            root = data.Object:FindFirstChild("HumanoidRootPart")
+                or data.Object.PrimaryPart
+                or data.Object:FindFirstChildWhichIsA("BasePart")
+
+            if not root then
                 continue
             end
 
             worldPos = root.Position
+
+        else
+
+            root = data.Object
         end
 
         local screenPos,onScreen,depth = WorldToScreen(worldPos)
