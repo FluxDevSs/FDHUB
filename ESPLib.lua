@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.1
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.2
     Clean rewrite
 ]]
 
@@ -325,24 +325,30 @@ RunService.RenderStepped:Connect(function()
 
         if data.Text then
 
-            local color
-            local name
+            if ESP.Settings.NameEnabled then
 
-            if data.Type == "Player" then
-                color = ESP.Colors.Player
-                name = data.Object.Name
-            elseif data.Type == "NPC" then
-                color = ESP.Colors.NPC
-                name = data.Name
+                local color
+                local name
+
+                if data.Type == "Player" then
+                    color = ESP.Colors.Player
+                    name = data.Object.Name
+                elseif data.Type == "NPC" then
+                    color = ESP.Colors.NPC
+                    name = data.Name
+                else
+                    color = ESP.Colors.Item
+                    name = data.Name
+                end
+
+                data.Text.Text = string.format("%s [%.0fm]",name,dist)
+                data.Text.Color = color
+                data.Text.Position = screenPos - Vector2.new(0,20)
+                data.Text.Visible = true
+
             else
-                color = ESP.Colors.Item
-                name = data.Name
+                data.Text.Visible = false
             end
-
-            data.Text.Text = string.format("%s [%.0fm]",name,dist)
-            data.Text.Color = color
-            data.Text.Position = screenPos - Vector2.new(0,20)
-            data.Text.Visible = true
 
         end
 
