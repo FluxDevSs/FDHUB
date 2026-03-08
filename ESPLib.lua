@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.2
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.0
     Clean rewrite
 ]]
 
@@ -343,7 +343,7 @@ RunService.RenderStepped:Connect(function()
 
                 data.Text.Text = string.format("%s [%.0fm]",name,dist)
                 data.Text.Color = color
-                data.Text.Position = screenPos - Vector2.new(0,20)
+                data.Text.Position = screenPos - Vector2.new(0,200)
                 data.Text.Visible = true
 
             else
