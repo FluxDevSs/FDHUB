@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.2
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.1
     Death safe + cleanup safe
 ]]
 
@@ -187,7 +187,7 @@ function ESP:AddPlayer(player)
 
     local skeletonLines = {}
 
-    for i=1,10 do
+    for i = 1,10 do
         skeletonLines[i] = NewLine()
     end
 
@@ -200,10 +200,37 @@ function ESP:AddPlayer(player)
         SkeletonLines = skeletonLines
     }
 
-    player.CharacterAdded:Connect(function(char)
-        local hum = char:WaitForChild("Humanoid",5)
+    ------------------------------------------------
+    -- CHARACTER SPAWN
+    ------------------------------------------------
+
+    local function hookCharacter(char)
+
+        -- remove ESP if character disappears
+        ESP.Connections[char] = char.AncestryChanged:Connect(function(_,parent)
+
+            if not parent then
+                local data = ESP.Objects[player]
+                if not data then return end
+
+                if data.Text then data.Text.Visible = false end
+                if data.Box then data.Box.Visible = false end
+                if data.HPBar then data.HPBar.Visible = false end
+
+                if data.SkeletonLines then
+                    for _,l in pairs(data.SkeletonLines) do
+                        l.Visible = false
+                    end
+                end
+            end
+
+        end)
+
+        local hum = char:FindFirstChildOfClass("Humanoid")
+
         if hum then
             hum.Died:Connect(function()
+
                 local data = ESP.Objects[player]
                 if not data then return end
 
@@ -219,8 +246,14 @@ function ESP:AddPlayer(player)
 
             end)
         end
+    end
 
-    end)
+    if player.Character then
+        hookCharacter(player.Character)
+    end
+
+    player.CharacterAdded:Connect(hookCharacter)
+
 end
 
 ------------------------------------------------
