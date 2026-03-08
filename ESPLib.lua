@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.9
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.1
     Auto cleanup built-in 
 ]]
 
@@ -94,12 +94,14 @@ local function WorldToScreen(pos)
 end
 
 local function GetBoundingBox(model)
+
     local cf,size = model:GetBoundingBox()
     local corners = {}
 
     for x=-1,1,2 do
         for y=-1,1,2 do
             for z=-1,1,2 do
+
                 table.insert(
                     corners,
                     (cf * CFrame.new(
@@ -108,6 +110,7 @@ local function GetBoundingBox(model)
                         size.Z/2 * z
                     )).Position
                 )
+
             end
         end
     end
@@ -116,9 +119,15 @@ local function GetBoundingBox(model)
 end
 
 local function safeW2S(part)
+
     if not part then return end
+
     local v,onScreen = Camera:WorldToViewportPoint(part.Position)
-    if not onScreen or v.Z <= 0 then return end
+
+    if not onScreen or v.Z <= 0 then
+        return
+    end
+
     return Vector2.new(v.X,v.Y)
 end
 
@@ -360,10 +369,6 @@ RunService.RenderStepped:Connect(function()
 
         local dist = (Camera.CFrame.Position - worldPos).Magnitude
 
-        ------------------------------------------------
-        -- TEXT
-        ------------------------------------------------
-
         if data.Type == "Player" then
 
             if ESP.Settings.NameEnabled then
@@ -392,10 +397,6 @@ RunService.RenderStepped:Connect(function()
             data.Text.Visible = true
 
         end
-
-        ------------------------------------------------
-        -- BOX
-        ------------------------------------------------
 
         if (data.Type == "Player" or data.Type == "NPC") and ESP.Settings.BoxEnabled then
 
