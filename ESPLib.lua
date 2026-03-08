@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.1
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.0
     Clean rewrite
 ]]
 
@@ -284,9 +284,7 @@ RunService.RenderStepped:Connect(function()
 
             if data.Skeleton then
                 for _,l in pairs(data.Skeleton) do
-                    if l then
-                        l.Visible = false
-                    end
+                    if l then l.Visible = false end
                 end
             end
 
@@ -297,28 +295,33 @@ RunService.RenderStepped:Connect(function()
 
     for obj,data in pairs(ESP.Objects) do
 
-        if not data then continue end
-
         local root = data.Root
         local hum = data.Hum
 
+        ------------------------------------------------
+        -- CLEANUP IF BROKEN
+        ------------------------------------------------
+
         if not root or not hum or not root.Parent or hum.Health <= 0 then
 
-            if data.Box then data.Box.Visible = false end
-            if data.Text then data.Text.Visible = false end
-            if data.HP then data.HP.Visible = false end
+            if data.Box then data.Box:Remove() end
+            if data.Text then data.Text:Remove() end
+            if data.HP then data.HP:Remove() end
 
             if data.Skeleton then
                 for _,l in pairs(data.Skeleton) do
-                    if l then
-                        l.Visible = false
-                    end
+                    if l then l:Remove() end
                 end
             end
 
+            ESP.Objects[obj] = nil
             continue
         end
 
+
+        ------------------------------------------------
+        -- SCREEN POSITION
+        ------------------------------------------------
 
         local pos,visible = Camera:WorldToViewportPoint(root.Position)
 
@@ -330,35 +333,28 @@ RunService.RenderStepped:Connect(function()
 
             if data.Skeleton then
                 for _,l in pairs(data.Skeleton) do
-                    if l then
-                        l.Visible = false
-                    end
+                    if l then l.Visible = false end
                 end
             end
 
             continue
         end
 
+
+        ------------------------------------------------
+        -- DISTANCE
+        ------------------------------------------------
 
         local distance = (Camera.CFrame.Position - root.Position).Magnitude
 
         if distance > ESP.Settings.MaxDistance then
-
-            if data.Box then data.Box.Visible = false end
-            if data.Text then data.Text.Visible = false end
-            if data.HP then data.HP.Visible = false end
-
-            if data.Skeleton then
-                for _,l in pairs(data.Skeleton) do
-                    if l then
-                        l.Visible = false
-                    end
-                end
-            end
-
             continue
         end
 
+
+        ------------------------------------------------
+        -- BOX SIZE
+        ------------------------------------------------
 
         local scale = 1/(distance*0.01)
         local w = 35*scale
@@ -366,6 +362,11 @@ RunService.RenderStepped:Connect(function()
 
         local x = pos.X - w/2
         local y = pos.Y - h/2
+
+
+        ------------------------------------------------
+        -- PLAYER / NPC BOX SEPARATION
+        ------------------------------------------------
 
         local showBox = false
 
@@ -378,53 +379,79 @@ RunService.RenderStepped:Connect(function()
         end
 
 
-        if showBox and data.Box then
-            data.Box.Size = Vector2.new(w,h)
-            data.Box.Position = Vector2.new(x,y)
-            data.Box.Visible = true
-        elseif data.Box then
-            data.Box.Visible = false
+        if data.Box then
+
+            if showBox then
+                data.Box.Size = Vector2.new(w,h)
+                data.Box.Position = Vector2.new(x,y)
+                data.Box.Visible = true
+            else
+                data.Box.Visible = false
+            end
+
         end
 
 
-        if ESP.Settings.NameEnabled and data.Text then
-            data.Text.Text = data.Name.." ["..math.floor(distance).."m]"
-            data.Text.Position = Vector2.new(pos.X,y-14)
-            data.Text.Visible = true
-        elseif data.Text then
-            data.Text.Visible = false
+        ------------------------------------------------
+        -- NAME
+        ------------------------------------------------
+
+        if data.Text then
+
+            if ESP.Settings.NameEnabled then
+                data.Text.Text = data.Name.." ["..math.floor(distance).."m]"
+                data.Text.Position = Vector2.new(pos.X,y-14)
+                data.Text.Visible = true
+            else
+                data.Text.Visible = false
+            end
+
         end
 
 
-        if ESP.Settings.HPEnabled and data.HP then
+        ------------------------------------------------
+        -- HP BAR
+        ------------------------------------------------
 
-            local percent = hum.Health / hum.MaxHealth
-            local hpHeight = h * percent
+        if data.HP then
 
-            data.HP.From = Vector2.new(x-5,y+h)
-            data.HP.To = Vector2.new(x-5,y+h-hpHeight)
+            if ESP.Settings.HPEnabled then
 
-            data.HP.Color = Color3.fromRGB(
-                255*(1-percent),
-                255*percent,
-                0
-            )
+                local percent = hum.Health / hum.MaxHealth
+                local hpHeight = h * percent
 
-            data.HP.Visible = true
+                data.HP.From = Vector2.new(x-5,y+h)
+                data.HP.To = Vector2.new(x-5,y+h-hpHeight)
 
-        elseif data.HP then
-            data.HP.Visible = false
+                data.HP.Color = Color3.fromRGB(
+                    255*(1-percent),
+                    255*percent,
+                    0
+                )
+
+                data.HP.Visible = true
+
+            else
+                data.HP.Visible = false
+            end
+
         end
 
 
-        if ESP.Settings.SkeletonEnabled and data.Skeleton then
-            drawSkeleton(data.Skeleton, root.Parent)
-        elseif data.Skeleton then
-            for _,l in pairs(data.Skeleton) do
-                if l then
-                    l.Visible = false
+        ------------------------------------------------
+        -- SKELETON
+        ------------------------------------------------
+
+        if data.Skeleton then
+
+            if ESP.Settings.SkeletonEnabled then
+                drawSkeleton(data.Skeleton,root.Parent)
+            else
+                for _,l in pairs(data.Skeleton) do
+                    if l then l.Visible = false end
                 end
             end
+
         end
 
     end
@@ -432,4 +459,3 @@ RunService.RenderStepped:Connect(function()
 end)
 
 return ESP
-
