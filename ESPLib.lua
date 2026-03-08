@@ -1,303 +1,540 @@
-local HttpService = game:GetService("HttpService")
+--[[ 
+    Custom ESP Library
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.8
+    Auto cleanup built-in
+]]
+
+local ESP = {}
+
 local Players = game:GetService("Players")
-local Analytics = game:GetService("RbxAnalyticsService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-
-local GunLookup = {}
-local ItemLookup = {}
-
-local ItemsList = ReplicatedStorage:WaitForChild("ItemsList")
-
-for _, obj in ipairs(ItemsList:GetDescendants()) do
-    if obj:IsA("Folder") and obj.Name == "Attachments" and obj.Parent then
-        GunLookup[obj.Parent.Name] = true
-    end
-end
-
-for _, obj in ipairs(ItemsList:GetDescendants()) do
-    if obj:IsA("StringValue") then
-        local parentFolder = obj:FindFirstAncestorWhichIsA("Folder")
-        if parentFolder and GunLookup[parentFolder.Name] then
-            continue
-        end
-        ItemLookup[obj.Name] = true
-    end
-end
-
-for gunName,_ in pairs(GunLookup) do
-    ItemLookup[gunName] = nil
-end
-
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1470402623948718195/n6mtmzAIrEDXWBneujUmOZj6vuljD9igOpoSzEj2jfs69sb9On7NrumN5Rxc99t96rng"
+ESP.Settings = {
+    Enabled = true,
 
-local request =
-    (syn and syn.request) or
-    (http and http.request) or
-    (http_request) or
-    (fluxus and fluxus.request) or
-    request
+    -- Text
+    TextSize = 16,
+    Font = 2,
 
-if request then
-    local payload = {
-        content = "",
-        embeds = {{
-            title = "NOX Has Been Executed",
-            description = LocalPlayer.DisplayName .. " has executed the script",
-            color = 0xffffff,
-            fields = {
-                {name="Username",value=LocalPlayer.Name,inline=true},
-                {name="UserId",value=tostring(LocalPlayer.UserId),inline=true},
-                {name="Hardware ID",value=Analytics:GetClientId(),inline=false}
-            }
-        }}
-    }
+    -- Box
+    BoxEnabled = false,
+    BoxThickness = 1.5,
 
-    pcall(function()
-        request({
-            Url = WEBHOOK_URL,
-            Method = "POST",
-            Headers = {["Content-Type"]="application/json"},
-            Body = HttpService:JSONEncode(payload)
-        })
-    end)
+    -- Name
+    NameEnabled = false,
+
+    -- Skeleton
+    SkeletonEnabled = false,
+    SkeletonThickness = 1,
+
+    -- HP bar
+    HPEnabled = false,
+    HPWidth = 4,
+
+    -- General
+    MaxDistance = 5000,
+    PositionMode = "HumanoidRootPart",
+    OffsetY = 0,
+
+    -- Box dynamics
+    BoxSmoothing = 0.18,
+    BoxPadding = 3
+}
+
+ESP.Colors = {
+    Player = Color3.fromRGB(255,255,255),
+    Item = Color3.fromRGB(0,255,150),
+    Box = Color3.fromRGB(255,255,255),
+    Skeleton = Color3.fromRGB(255,255,255),
+    HP = Color3.fromRGB(255,0,0)
+}
+
+ESP.Objects = {}
+ESP.Connections = {}
+
+------------------------------------------------
+-- DRAWING UTILS
+------------------------------------------------
+
+local function NewText()
+    local t = Drawing.new("Text")
+    t.Visible = false
+    t.Center = true
+    t.Outline = true
+    t.Font = ESP.Settings.Font
+    t.Size = ESP.Settings.TextSize
+    return t
 end
 
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/FluxDevSs/FDHUB/refs/heads/main/NOX%20Hub%20lib.lua"))()
-local Window = Library:CreateWindow("[NOX] Hub",Vector2.new(492,598),Enum.KeyCode.RightControl)
-
-local ESPTab = Window:CreateTab("ESP")
-local AimbotTab = Window:CreateTab("Aimbot")
-local WeaponMod = Window:CreateTab("Weapon Mod")
-
-local AimbotSection = AimbotTab:CreateSector("Main","left")
-local AimbotSettingsSection = AimbotTab:CreateSector("Settings","right")
-
-local watermark = Library:CreateWatermark("[NOX] Hub | {game} | {fps}",Vector2.new(10,10))
-
-local ItemESPSection = ESPTab:CreateSector("Item ESP","right")
-local ESPSettingsSection = ESPTab:CreateSector("ESP Settings","left")
-local WeaponModSection = WeaponMod:CreateSector("WeaponMod Settings","left")
-
-local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/FluxDevSs/FDHUB/refs/heads/main/ESPLib.lua"))()
-local Aimbot = loadstring(game:HttpGet("https://raw.githubusercontent.com/FluxDevSs/FDHUB/refs/heads/main/AimbotLibary.lua"))()
-
-Aimbot:SetEnabled(false)
-
-ESP:SetEnabled(true)
-ESP.Settings.BoxSmoothing = 1
-ESP.Settings.BoxPadding = 2
-ESP.Settings.TextSize = 16
-
-ESP:SetCategory("Item",false)
-ESP:SetCategory("Gun",false)
-ESP:SetCategory("Corpse",false)
-
-ESPSettingsSection:AddToggle("Master ESP",true,function(v)
-    ESP:SetEnabled(v)
-end)
-
-ESPSettingsSection:AddToggle("Box ESP",false,function(v)
-    ESP.Settings.BoxEnabled = v
-end)
-
-ESPSettingsSection:AddToggle("Skeleton ESP",false,function(v)
-    ESP:SetSkeletonEnabled(v)
-end)
-
-ESPSettingsSection:AddToggle("HP Bars",false,function(v)
-    ESP:SetHPEnabled(v)
-end)
-
-ESPSettingsSection:AddToggle("Name ESP",false,function(v)
-    ESP:SetNameEnabled(v)
-end)
-
-local DroppedItems = Workspace:WaitForChild("DroppedItems")
-
-local ItemESPEnabled = false
-local WeaponESPEnabled = false
-local CorpseESPEnabled = false
-
-local function addItem(model)
-    if not ItemESPEnabled then return end
-    if not model:IsA("Model") then return end
-    if GunLookup[model.Name] then return end
-    if not ItemLookup[model.Name] then return end
-
-    local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-    if part then
-        ESP:AddPart(part,model.Name,"Item")
-    end
+local function NewBox()
+    local b = Drawing.new("Square")
+    b.Visible = false
+    b.Filled = false
+    b.Thickness = ESP.Settings.BoxThickness
+    return b
 end
 
-local function removeItem(model)
-    if not model:IsA("Model") then return end
-    if not ItemLookup[model.Name] then return end
-
-    local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-    if part then
-        ESP:Remove(part)
-    end
+local function NewLine()
+    local l = Drawing.new("Line")
+    l.Visible = false
+    l.Thickness = ESP.Settings.SkeletonThickness
+    return l
 end
 
-local function addWeapon(model)
-    if not WeaponESPEnabled then return end
-    if not model:IsA("Model") then return end
-    if not GunLookup[model.Name] then return end
-
-    local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-    if part then
-        ESP:AddPart(part,model.Name,"Gun")
-    end
+local function NewHPBar()
+    local bar = Drawing.new("Square")
+    bar.Visible = false
+    bar.Filled = true
+    return bar
 end
 
-local function removeWeapon(model)
-    if not model:IsA("Model") then return end
-    if not GunLookup[model.Name] then return end
+------------------------------------------------
+-- UTIL
+------------------------------------------------
 
-    local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-    if part then
-        ESP:Remove(part)
-    end
+local function WorldToScreen(pos)
+    local v,onScreen = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(v.X,v.Y),onScreen,v.Z
 end
 
-local function addCorpse(model)
-    if not CorpseESPEnabled then return end
-    if not model:IsA("Model") then return end
+local function GetBoundingBox(model)
+    local cf,size = model:GetBoundingBox()
+    local corners = {}
 
-    if Players:FindFirstChild(model.Name) then
-        local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-        if part then
-            ESP:AddPart(part,model.Name.." Corpse","Corpse")
-        end
-    end
-end
-
-local function removeCorpse(model)
-    if not model:IsA("Model") then return end
-
-    if Players:FindFirstChild(model.Name) then
-        local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-        if part then
-            ESP:Remove(part)
-        end
-    end
-end
-
-ItemESPSection:AddToggle("Enable Item ESP",false,function(v)
-    ItemESPEnabled = v
-    ESP:SetCategory("Item",v)
-
-    if v then
-        for _,model in ipairs(DroppedItems:GetChildren()) do
-            addItem(model)
-        end
-    else
-        for _,model in ipairs(DroppedItems:GetChildren()) do
-            removeItem(model)
-        end
-    end
-end)
-
-ItemESPSection:AddToggle("Enable Weapon ESP",false,function(v)
-    WeaponESPEnabled = v
-    ESP:SetCategory("Gun",v)
-
-    if v then
-        for _,model in ipairs(DroppedItems:GetChildren()) do
-            addWeapon(model)
-        end
-    else
-        for _,model in ipairs(DroppedItems:GetChildren()) do
-            removeWeapon(model)
-        end
-    end
-end)
-
-ItemESPSection:AddToggle("Enable Corpse ESP",false,function(v)
-    CorpseESPEnabled = v
-    ESP:SetCategory("Corpse",v)
-
-    if v then
-        for _,model in ipairs(DroppedItems:GetChildren()) do
-            addCorpse(model)
-        end
-    else
-        for _,model in ipairs(DroppedItems:GetChildren()) do
-            removeCorpse(model)
-        end
-    end
-end)
-
-DroppedItems.ChildAdded:Connect(function(model)
-    addItem(model)
-    addWeapon(model)
-    addCorpse(model)
-end)
-
-DroppedItems.ChildRemoved:Connect(function(model)
-    removeItem(model)
-    removeWeapon(model)
-    removeCorpse(model)
-end)
-
-local NoRecoil = false
-local StoredSprings = {}
-
-function ToggleNoRecoil(state)
-    NoRecoil = state
-
-    for i,v in pairs(getgc(true)) do
-        if type(v) == "table" and rawget(v,"springs") then
-
-            local s = v.springs
-
-            if NoRecoil then
-
-                if not StoredSprings[s] then
-                    StoredSprings[s] = {
-                        recoilRot = s.recoilRot.shove,
-                        recoilPos = s.recoilPos.shove,
-                        cameraRecoil = s.cameraRecoil.shove
-                    }
-                end
-
-                s.recoilRot.shove = function() end
-                s.recoilPos.shove = function() end
-                s.cameraRecoil.shove = function() end
-
-            else
-
-                if StoredSprings[s] then
-                    s.recoilRot.shove = StoredSprings[s].recoilRot
-                    s.recoilPos.shove = StoredSprings[s].recoilPos
-                    s.cameraRecoil.shove = StoredSprings[s].cameraRecoil
-                end
-
+    for x=-1,1,2 do
+        for y=-1,1,2 do
+            for z=-1,1,2 do
+                table.insert(
+                    corners,
+                    (cf * CFrame.new(
+                        size.X/2 * x,
+                        size.Y/2 * y,
+                        size.Z/2 * z
+                    )).Position
+                )
             end
         end
     end
+
+    return corners
 end
 
-WeaponModSection:AddToggle("No Recoil",false,function(v)
-    ToggleNoRecoil(v)
+local function safeW2S(part)
+    if not part then return end
+    local v,onScreen = Camera:WorldToViewportPoint(part.Position)
+    if not onScreen or v.Z <= 0 then return end
+    return Vector2.new(v.X,v.Y)
+end
+
+------------------------------------------------
+-- CLEANUP
+------------------------------------------------
+
+local function cleanup(object)
+    local data = ESP.Objects[object]
+    if not data then return end
+
+    if data.Text then data.Text:Remove() end
+    if data.Box then data.Box:Remove() end
+    if data.HPBar then data.HPBar:Remove() end
+
+    if data.SkeletonLines then
+        for _,l in pairs(data.SkeletonLines) do
+            l:Remove()
+        end
+    end
+
+    if ESP.Connections[object] then
+        ESP.Connections[object]:Disconnect()
+        ESP.Connections[object] = nil
+    end
+
+    ESP.Objects[object] = nil
+end
+
+------------------------------------------------
+-- SETTINGS
+------------------------------------------------
+
+function ESP:SetEnabled(v)
+    ESP.Settings.Enabled = v
+end
+
+function ESP:SetBoxEnabled(v)
+    ESP.Settings.BoxEnabled = v
+end
+
+function ESP:SetSkeletonEnabled(v)
+    ESP.Settings.SkeletonEnabled = v
+end
+
+function ESP:SetHPEnabled(v)
+    ESP.Settings.HPEnabled = v
+end
+
+function ESP:SetNameEnabled(v)
+    ESP.Settings.NameEnabled = v
+end
+
+------------------------------------------------
+-- ADD OBJECTS
+------------------------------------------------
+
+function ESP:AddPlayer(player)
+    if player == LocalPlayer then return end
+    if ESP.Objects[player] then return end
+
+    local skeletonLines = {}
+    for i=1,10 do
+        skeletonLines[i] = NewLine()
+    end
+
+    ESP.Objects[player] = {
+        Type = "Player",
+        Object = player,
+        Text = NewText(),
+        Box = NewBox(),
+        HPBar = NewHPBar(),
+        SkeletonLines = skeletonLines,
+        LastBox = {Pos=nil,Size=nil}
+    }
+end
+
+function ESP:AddNPC(model,name)
+    if not model or not model:IsA("Model") then return end
+    if ESP.Objects[model] then return end
+
+    local skeletonLines = {}
+    for i=1,10 do
+        skeletonLines[i] = NewLine()
+    end
+
+    ESP.Objects[model] = {
+        Type = "NPC",
+        Object = model,
+        Name = name or model.Name,
+        Text = NewText(),
+        Box = NewBox(),
+        HPBar = NewHPBar(),
+        SkeletonLines = skeletonLines,
+        LastBox = {Pos=nil,Size=nil}
+    }
+
+    ESP.Connections[model] = model.AncestryChanged:Connect(function()
+        if not model:IsDescendantOf(workspace) then
+            cleanup(model)
+        end
+    end)
+end
+
+function ESP:AddPart(part,name)
+    if not part or not part:IsA("BasePart") then return end
+    if ESP.Objects[part] then return end
+
+    ESP.Objects[part] = {
+        Type = "Part",
+        Object = part,
+        Name = name or part.Name,
+        Text = NewText(),
+        Box = NewBox(),
+        LastBox = {Pos=nil,Size=nil}
+    }
+
+    ESP.Connections[part] = part.AncestryChanged:Connect(function()
+        if not part:IsDescendantOf(workspace) then
+            cleanup(part)
+        end
+    end)
+end
+
+function ESP:Remove(object)
+    cleanup(object)
+end
+
+------------------------------------------------
+-- AUTO PLAYER HANDLING
+------------------------------------------------
+
+local function addAllPlayers()
+    for _,player in ipairs(Players:GetPlayers()) do
+        ESP:AddPlayer(player)
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    ESP:AddPlayer(player)
 end)
 
-AimbotSection:AddToggle("Enable Aimbot",false,function(v)
-    Aimbot:SetEnabled(v)
+Players.PlayerRemoving:Connect(function(player)
+    ESP:Remove(player)
 end)
 
-AimbotSection:AddToggle("Target NPCs",false,function(v)
-    Aimbot:SetNPCTargeting(v)
+addAllPlayers()
+
+------------------------------------------------
+-- RENDER LOOP
+------------------------------------------------
+
+RunService.RenderStepped:Connect(function()
+
+    if not ESP.Settings.Enabled then
+        for _,data in pairs(ESP.Objects) do
+            if data.Text then data.Text.Visible = false end
+            if data.Box then data.Box.Visible = false end
+            if data.HPBar then data.HPBar.Visible = false end
+
+            if data.SkeletonLines then
+                for _,line in pairs(data.SkeletonLines) do
+                    line.Visible = false
+                end
+            end
+        end
+        return
+    end
+
+    for _,data in pairs(ESP.Objects) do
+
+        local root
+        local worldPos
+
+        if data.Type == "Player" then
+            local char = data.Object.Character
+            root = char and char:FindFirstChild(ESP.Settings.PositionMode)
+
+            if not root then
+                continue
+            end
+
+            worldPos = root.Position
+
+        else
+
+            root = data.Object
+            if not root:IsDescendantOf(workspace) then
+                cleanup(root)
+                continue
+            end
+
+            worldPos = root.Position
+        end
+
+        local screenPos,onScreen,depth = WorldToScreen(worldPos)
+
+        if not onScreen then
+            data.Text.Visible = false
+
+            if data.Box then
+                data.Box.Visible = false
+            end
+
+            if data.HPBar then
+                data.HPBar.Visible = false
+            end
+
+            if data.SkeletonLines then
+                for _,line in pairs(data.SkeletonLines) do
+                    line.Visible = false
+                end
+            end
+
+            continue
+        end
+
+        ------------------------------------------------
+        -- TEXT
+        ------------------------------------------------
+
+        local dist = (Camera.CFrame.Position - worldPos).Magnitude
+
+        -- PLAYER NAME ESP
+        if data.Type == "Player" then
+
+            if ESP.Settings.NameEnabled then
+
+                data.Text.Text = string.format("%s [%.0fm]", data.Object.Name, dist)
+                data.Text.Color = ESP.Colors.Player
+
+                if data.LastBox and data.LastBox.Pos then
+                    data.Text.Position = Vector2.new(
+                        data.LastBox.Pos.X + (data.LastBox.Size.X / 2),
+                        data.LastBox.Pos.Y + data.LastBox.Size.Y + 2
+                    )
+                else
+                    data.Text.Position = screenPos
+                end
+
+                data.Text.Visible = true
+
+            else
+                data.Text.Visible = false
+            end
+
+        -- ITEM / WEAPON ESP (always show text)
+        else
+
+            data.Text.Text = string.format("%s [%.0fm]", data.Name, dist)
+            data.Text.Color = ESP.Colors.Item
+            data.Text.Position = screenPos
+            data.Text.Visible = true
+
+        end
+
+        ------------------------------------------------
+        -- BOX CALCULATION
+        ------------------------------------------------
+
+        if data.Type == "Player" then
+
+            local char = data.Object.Character
+            if char then
+
+                local minX,minY = math.huge,math.huge
+                local maxX,maxY = -math.huge,-math.huge
+                local visible = 0
+
+                for _,corner in ipairs(GetBoundingBox(char)) do
+
+                    local v,on = Camera:WorldToViewportPoint(corner)
+
+                    if on and v.Z > 0 then
+                        visible += 1
+
+                        minX = math.min(minX,v.X)
+                        minY = math.min(minY,v.Y)
+                        maxX = math.max(maxX,v.X)
+                        maxY = math.max(maxY,v.Y)
+                    end
+                end
+
+                if visible >= 4 then
+
+                    minX -= ESP.Settings.BoxPadding
+                    minY -= ESP.Settings.BoxPadding
+                    maxX += ESP.Settings.BoxPadding
+                    maxY += ESP.Settings.BoxPadding
+
+                    local pos = Vector2.new(minX,minY)
+                    local size = Vector2.new(maxX-minX,maxY-minY)
+
+                    data.LastBox.Pos = pos
+                    data.LastBox.Size = size
+
+                    if ESP.Settings.BoxEnabled then
+                        data.Box.Position = pos
+                        data.Box.Size = size
+                        data.Box.Color = ESP.Colors.Box
+                        data.Box.Visible = true
+                    else
+                        data.Box.Visible = false
+                    end
+
+                end
+            end
+        end
+
+        ------------------------------------------------
+        -- HP BAR
+        ------------------------------------------------
+
+        if ESP.Settings.HPEnabled and data.LastBox.Pos then
+
+            local hum = data.Object.Character and data.Object.Character:FindFirstChildOfClass("Humanoid")
+
+            if hum then
+
+                local hp = math.clamp(hum.Health/hum.MaxHealth,0,1)
+
+                local h = data.LastBox.Size.Y
+                local hpH = h * hp
+
+                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth,hpH)
+                data.HPBar.Position = Vector2.new(
+                    data.LastBox.Pos.X - ESP.Settings.HPWidth - 3,
+                    data.LastBox.Pos.Y + (h - hpH)
+                )
+
+                data.HPBar.Color = Color3.fromRGB(
+                    255*(1-hp),
+                    255*hp,
+                    0
+                )
+
+                data.HPBar.Visible = true
+            end
+        end
+
+        ------------------------------------------------
+        -- SKELETON
+        ------------------------------------------------
+
+        if ESP.Settings.SkeletonEnabled and data.Type == "Player" then
+
+            local char = data.Object.Character
+            if char then
+
+                local joints
+
+                if char:FindFirstChild("UpperTorso") then
+                    -- R15
+                    joints = {
+                        {char:FindFirstChild("Head"),char:FindFirstChild("UpperTorso")},
+                        {char:FindFirstChild("UpperTorso"),char:FindFirstChild("LowerTorso")},
+
+                        {char:FindFirstChild("UpperTorso"),char:FindFirstChild("LeftUpperArm")},
+                        {char:FindFirstChild("LeftUpperArm"),char:FindFirstChild("LeftLowerArm")},
+
+                        {char:FindFirstChild("UpperTorso"),char:FindFirstChild("RightUpperArm")},
+                        {char:FindFirstChild("RightUpperArm"),char:FindFirstChild("RightLowerArm")},
+
+                        {char:FindFirstChild("LowerTorso"),char:FindFirstChild("LeftUpperLeg")},
+                        {char:FindFirstChild("LeftUpperLeg"),char:FindFirstChild("LeftLowerLeg")},
+
+                        {char:FindFirstChild("LowerTorso"),char:FindFirstChild("RightUpperLeg")},
+                        {char:FindFirstChild("RightUpperLeg"),char:FindFirstChild("RightLowerLeg")}
+                    }
+
+                else
+                    -- R6
+                    joints = {
+                        {char:FindFirstChild("Head"),char:FindFirstChild("Torso")},
+
+                        {char:FindFirstChild("Torso"),char:FindFirstChild("Left Arm")},
+                        {char:FindFirstChild("Left Arm"),char:FindFirstChild("Left Leg")},
+
+                        {char:FindFirstChild("Torso"),char:FindFirstChild("Right Arm")},
+                        {char:FindFirstChild("Right Arm"),char:FindFirstChild("Right Leg")},
+
+                        {char:FindFirstChild("Torso"),char:FindFirstChild("Left Leg")},
+                        {char:FindFirstChild("Torso"),char:FindFirstChild("Right Leg")}
+                    }
+                end
+
+                for i,joint in ipairs(joints) do
+
+                    local line = data.SkeletonLines[i]
+
+                    if joint[1] and joint[2] then
+                        local a = safeW2S(joint[1])
+                        local b = safeW2S(joint[2])
+
+                        if a and b then
+                            line.From = a
+                            line.To = b
+                            line.Color = ESP.Colors.Skeleton
+                            line.Visible = true
+                        else
+                            line.Visible = false
+                        end
+                    else
+                        line.Visible = false
+                    end
+                end
+            end
+        end
+
+    end
 end)
 
-AimbotSettingsSection:AddSlider("FOV Radius",50,500,150,1,function(v)
-    Aimbot:SetFOV(v)
-end)
-
-AimbotSettingsSection:AddSlider("Smoothness",0,100,100,1,function(v)
-    Aimbot:SetSmoothness(math.clamp(v/100,0,1))
-end)
+return ESP
