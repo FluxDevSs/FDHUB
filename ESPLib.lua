@@ -1,7 +1,7 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.0
-    Clean rewrite
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.1
+    Death safe + cleanup safe
 ]]
 
 local ESP = {}
@@ -54,7 +54,7 @@ ESP.Objects = {}
 ESP.Connections = {}
 
 ------------------------------------------------
--- DRAWING FACTORY
+-- DRAWINGS
 ------------------------------------------------
 
 local function NewText()
@@ -83,10 +83,10 @@ local function NewLine()
 end
 
 local function NewHPBar()
-    local bar = Drawing.new("Square")
-    bar.Visible = false
-    bar.Filled = true
-    return bar
+    local b = Drawing.new("Square")
+    b.Visible = false
+    b.Filled = true
+    return b
 end
 
 ------------------------------------------------
@@ -157,7 +157,7 @@ local function cleanup(object)
 end
 
 ------------------------------------------------
--- SETTINGS
+-- SETTINGS FUNCTIONS
 ------------------------------------------------
 
 function ESP:SetEnabled(v)
@@ -177,7 +177,7 @@ function ESP:SetNameEnabled(v)
 end
 
 ------------------------------------------------
--- ADD OBJECTS
+-- ADD PLAYER
 ------------------------------------------------
 
 function ESP:AddPlayer(player)
@@ -200,6 +200,10 @@ function ESP:AddPlayer(player)
         SkeletonLines = skeletonLines
     }
 end
+
+------------------------------------------------
+-- ADD NPC
+------------------------------------------------
 
 function ESP:AddNPC(model,name)
 
@@ -228,6 +232,10 @@ function ESP:AddNPC(model,name)
         end
     end)
 end
+
+------------------------------------------------
+-- ADD PART
+------------------------------------------------
 
 function ESP:AddPart(part,name)
 
@@ -296,10 +304,12 @@ RunService.RenderStepped:Connect(function()
 
         if data.Type == "Player" then
             model = data.Object.Character
-            root = model and model:FindFirstChild(ESP.Settings.PositionMode)
+            if not model or not model.Parent then continue end
+            root = model:FindFirstChild(ESP.Settings.PositionMode)
 
         elseif data.Type == "NPC" then
             model = data.Object
+            if not model or not model.Parent then continue end
             root = GetRoot(model)
 
         else
@@ -314,64 +324,68 @@ RunService.RenderStepped:Connect(function()
             if data.Text then data.Text.Visible = false end
             if data.Box then data.Box.Visible = false end
             if data.HPBar then data.HPBar.Visible = false end
+            if data.SkeletonLines then
+                for _,l in pairs(data.SkeletonLines) do
+                    l.Visible = false
+                end
+            end
             continue
         end
 
         local dist = (Camera.CFrame.Position - root.Position).Magnitude
 
-    ------------------------------------------------
-    -- TEXT
-    ------------------------------------------------
+------------------------------------------------
+-- TEXT
+------------------------------------------------
 
-    if data.Text then
+        if data.Text then
 
-        if ESP.Settings.NameEnabled then
+            if ESP.Settings.NameEnabled then
 
-            local color
-            local name
-            local head
+                local color
+                local name
+                local head
 
-            if data.Type == "Player" then
-                color = ESP.Colors.Player
-                name = data.Object.Name
-                head = model and model:FindFirstChild("Head")
+                if data.Type == "Player" then
+                    color = ESP.Colors.Player
+                    name = data.Object.Name
+                    head = model:FindFirstChild("Head")
 
-            elseif data.Type == "NPC" then
-                color = ESP.Colors.NPC
-                name = data.Name
-                head = model and model:FindFirstChild("Head")
+                elseif data.Type == "NPC" then
+                    color = ESP.Colors.NPC
+                    name = data.Name
+                    head = model:FindFirstChild("Head")
 
-            else
-                color = ESP.Colors.Item
-                name = data.Name
-            end
+                else
+                    color = ESP.Colors.Item
+                    name = data.Name
+                end
 
-            local pos = root.Position
+                local pos = root.Position
 
-            if head then
-                pos = head.Position + Vector3.new(0,0.6,0)
-            end
+                if head then
+                    pos = head.Position + Vector3.new(0,0.6,0)
+                end
 
-            local screen,onScreen = WorldToScreen(pos)
+                local screen,on = WorldToScreen(pos)
 
-            if onScreen then
-                data.Text.Text = string.format("%s [%.0fm]",name,dist)
-                data.Text.Color = color
-                data.Text.Position = screen
-                data.Text.Visible = true
+                if on then
+                    data.Text.Text = string.format("%s [%.0fm]",name,dist)
+                    data.Text.Color = color
+                    data.Text.Position = screen
+                    data.Text.Visible = true
+                else
+                    data.Text.Visible = false
+                end
+
             else
                 data.Text.Visible = false
             end
-
-        else
-            data.Text.Visible = false
         end
 
-    end
-
-        ------------------------------------------------
-        -- BOX
-        ------------------------------------------------
+------------------------------------------------
+-- BOX
+------------------------------------------------
 
         if model and data.Box then
 
@@ -421,9 +435,9 @@ RunService.RenderStepped:Connect(function()
 
         end
 
-        ------------------------------------------------
-        -- HP BAR
-        ------------------------------------------------
+------------------------------------------------
+-- HP BAR
+------------------------------------------------
 
         if ESP.Settings.HPEnabled and data.HPBar and model then
 
@@ -454,11 +468,15 @@ RunService.RenderStepped:Connect(function()
 
         end
 
-        ------------------------------------------------
-        -- SKELETON
-        ------------------------------------------------
+------------------------------------------------
+-- SKELETON
+------------------------------------------------
 
         if ESP.Settings.SkeletonEnabled and data.SkeletonLines and model then
+
+            for _,line in pairs(data.SkeletonLines) do
+                line.Visible = false
+            end
 
             local parts = {
                 Head = model:FindFirstChild("Head"),
@@ -492,13 +510,11 @@ RunService.RenderStepped:Connect(function()
                     local s1,on1 = Camera:WorldToViewportPoint(p1.Position)
                     local s2,on2 = Camera:WorldToViewportPoint(p2.Position)
 
-                    if on1 and on2 then
+                    if on1 and on2 and s1.Z > 0 and s2.Z > 0 then
                         line.From = Vector2.new(s1.X,s1.Y)
                         line.To = Vector2.new(s2.X,s2.Y)
                         line.Color = ESP.Colors.Skeleton
                         line.Visible = true
-                    else
-                        line.Visible = false
                     end
 
                 end
