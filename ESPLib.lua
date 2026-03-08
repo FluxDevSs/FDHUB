@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.0
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.1
     Clean rewrite
 ]]
 
@@ -329,22 +329,39 @@ RunService.RenderStepped:Connect(function()
 
                 local color
                 local name
+                local head
 
                 if data.Type == "Player" then
                     color = ESP.Colors.Player
                     name = data.Object.Name
+                    head = model and model:FindFirstChild("Head")
+
                 elseif data.Type == "NPC" then
                     color = ESP.Colors.NPC
                     name = data.Name
+                    head = model and model:FindFirstChild("Head")
+
                 else
                     color = ESP.Colors.Item
                     name = data.Name
                 end
 
-                data.Text.Text = string.format("%s [%.0fm]",name,dist)
-                data.Text.Color = color
-                data.Text.Position = screenPos - Vector2.new(0,200)
-                data.Text.Visible = true
+                local pos = root.Position
+
+                if head then
+                    pos = head.Position + Vector3.new(0,0.6,0)
+                end
+
+                local screen,onScreen = WorldToScreen(pos)
+
+                if onScreen then
+                    data.Text.Text = string.format("%s [%.0fm]",name,dist)
+                    data.Text.Color = color
+                    data.Text.Position = screen
+                    data.Text.Visible = true
+                else
+                    data.Text.Visible = false
+                end
 
             else
                 data.Text.Visible = false
