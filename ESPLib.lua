@@ -1,7 +1,7 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.8
-    Auto cleanup built-in
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v1.9
+    Auto cleanup built-in 
 ]]
 
 local ESP = {}
@@ -251,6 +251,12 @@ end
 
 function ESP:Remove(object)
     cleanup(object)
+end
+
+function ESP:SetCategory(object, category)
+    if ESP.Objects[object] then
+        ESP.Objects[object].Category = category
+    end
 end
 
 ------------------------------------------------
