@@ -277,63 +277,88 @@ RunService.RenderStepped:Connect(function()
 
     if not ESP.Settings.Enabled then
         for _,data in pairs(ESP.Objects) do
-            data.Box.Visible = false
-            data.Text.Visible = false
-            data.HP.Visible = false
-            for _,l in pairs(data.Skeleton) do
-                l.Visible = false
+
+            if data.Box then data.Box.Visible = false end
+            if data.Text then data.Text.Visible = false end
+            if data.HP then data.HP.Visible = false end
+
+            if data.Skeleton then
+                for _,l in pairs(data.Skeleton) do
+                    if l then
+                        l.Visible = false
+                    end
+                end
             end
+
         end
         return
     end
 
+
     for obj,data in pairs(ESP.Objects) do
+
+        if not data then continue end
 
         local root = data.Root
         local hum = data.Hum
 
         if not root or not hum or not root.Parent or hum.Health <= 0 then
 
-            data.Box.Visible = false
-            data.Text.Visible = false
-            data.HP.Visible = false
+            if data.Box then data.Box.Visible = false end
+            if data.Text then data.Text.Visible = false end
+            if data.HP then data.HP.Visible = false end
 
-            for _,l in pairs(data.Skeleton) do
-                l.Visible = false
+            if data.Skeleton then
+                for _,l in pairs(data.Skeleton) do
+                    if l then
+                        l.Visible = false
+                    end
+                end
             end
 
             continue
         end
+
 
         local pos,visible = Camera:WorldToViewportPoint(root.Position)
 
         if not visible then
 
-            data.Box.Visible = false
-            data.Text.Visible = false
-            data.HP.Visible = false
+            if data.Box then data.Box.Visible = false end
+            if data.Text then data.Text.Visible = false end
+            if data.HP then data.HP.Visible = false end
 
-            for _,l in pairs(data.Skeleton) do
-                l.Visible = false
+            if data.Skeleton then
+                for _,l in pairs(data.Skeleton) do
+                    if l then
+                        l.Visible = false
+                    end
+                end
             end
 
             continue
         end
+
 
         local distance = (Camera.CFrame.Position - root.Position).Magnitude
 
         if distance > ESP.Settings.MaxDistance then
 
-            data.Box.Visible = false
-            data.Text.Visible = false
-            data.HP.Visible = false
+            if data.Box then data.Box.Visible = false end
+            if data.Text then data.Text.Visible = false end
+            if data.HP then data.HP.Visible = false end
 
-            for _,l in pairs(data.Skeleton) do
-                l.Visible = false
+            if data.Skeleton then
+                for _,l in pairs(data.Skeleton) do
+                    if l then
+                        l.Visible = false
+                    end
+                end
             end
 
             continue
         end
+
 
         local scale = 1/(distance*0.01)
         local w = 35*scale
@@ -352,23 +377,26 @@ RunService.RenderStepped:Connect(function()
             showBox = true
         end
 
-        if showBox then
+
+        if showBox and data.Box then
             data.Box.Size = Vector2.new(w,h)
             data.Box.Position = Vector2.new(x,y)
             data.Box.Visible = true
-        else
+        elseif data.Box then
             data.Box.Visible = false
         end
 
-        if ESP.Settings.NameEnabled then
+
+        if ESP.Settings.NameEnabled and data.Text then
             data.Text.Text = data.Name.." ["..math.floor(distance).."m]"
             data.Text.Position = Vector2.new(pos.X,y-14)
             data.Text.Visible = true
-        else
+        elseif data.Text then
             data.Text.Visible = false
         end
 
-        if ESP.Settings.HPEnabled then
+
+        if ESP.Settings.HPEnabled and data.HP then
 
             local percent = hum.Health / hum.MaxHealth
             local hpHeight = h * percent
@@ -384,15 +412,18 @@ RunService.RenderStepped:Connect(function()
 
             data.HP.Visible = true
 
-        else
+        elseif data.HP then
             data.HP.Visible = false
         end
 
-        if ESP.Settings.SkeletonEnabled then
+
+        if ESP.Settings.SkeletonEnabled and data.Skeleton then
             drawSkeleton(data.Skeleton, root.Parent)
-        else
+        elseif data.Skeleton then
             for _,l in pairs(data.Skeleton) do
-                l.Visible = false
+                if l then
+                    l.Visible = false
+                end
             end
         end
 
