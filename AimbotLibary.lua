@@ -1,3 +1,4 @@
+--v1
 local Aimbot = {}
 
 local Players = game:GetService("Players")
@@ -11,11 +12,13 @@ local holdingRightClick = false
 
 Aimbot.Settings = {
     Enabled = false,
+    FOVVisible = false,
     AimPart = "Head",
     FOVRadius = 200,
     Smoothness = 0,
     TeamCheck = false,
     AliveCheck = true,
+    BulletAimbot = false,
 }
 
 Aimbot.FOVCircle = Drawing.new("Circle")
@@ -90,14 +93,9 @@ RunService.RenderStepped:Connect(function()
 
     Aimbot.FOVCircle.Position = screenCenter
     Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
+    Aimbot.FOVCircle.Visible = Aimbot.Settings.FOVVisible
 
-    if not Aimbot.Settings.Enabled then
-        Aimbot.FOVCircle.Visible = false
-        return
-    end
-
-    Aimbot.FOVCircle.Visible = true
-
+    if not Aimbot.Settings.Enabled then return end
     if not holdingRightClick then return end
 
     local target = GetClosestPlayerInFOV()
@@ -113,8 +111,50 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- Bullet aimbot hook
+local BulletModule
+for _, v in pairs(getloadedmodules()) do
+    if v.Name == "Bullet" then
+        local ok, result = pcall(require, v)
+        if ok and type(result) == "table" and result.CreateBullet then
+            BulletModule = result
+            break
+        end
+    end
+end
+
+if BulletModule and BulletModule.CreateBullet then
+    local isFiring = false
+    local original
+    original = hookfunction(BulletModule.CreateBullet, newcclosure(function(self, p66, p67, p68, p69, a, p70, b, p71)
+        if not Aimbot.Settings.BulletAimbot then
+            return original(self, p66, p67, p68, p69, a, p70, b, p71)
+        end
+        if isFiring then
+            return original(self, p66, p67, p68, p69, a, p70, b, p71)
+        end
+        isFiring = true
+        local target = GetClosestPlayerInFOV()
+        if target and p69 then
+            local aimPos = target.Parent:FindFirstChild("Head") and target.Parent.Head.Position or target.Position
+            pcall(function()
+                p69.CFrame = CFrame.new(p69.Position, aimPos)
+            end)
+        end
+        local result = table.pack(original(self, p66, p67, p68, p69, a, p70, b, p71))
+        isFiring = false
+        return table.unpack(result)
+    end))
+else
+    warn("BulletModule not found — bullet aimbot unavailable")
+end
+
 function Aimbot:SetFOV(radius)
     self.Settings.FOVRadius = radius
+end
+
+function Aimbot:SetFOVVisible(state)
+    self.Settings.FOVVisible = state
 end
 
 function Aimbot:SetSmoothness(value)
@@ -127,7 +167,10 @@ end
 
 function Aimbot:SetEnabled(state)
     self.Settings.Enabled = state
-    self.FOVCircle.Visible = state
+end
+
+function Aimbot:SetBulletAimbot(state)
+    self.Settings.BulletAimbot = state
 end
 
 return Aimbot
