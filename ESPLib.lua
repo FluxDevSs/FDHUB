@@ -422,10 +422,10 @@ RunService.RenderStepped:Connect(function()
         end
 
 ------------------------------------------------
--- BOX
+-- BOX (Fixed screen-space, no model jitter)
 ------------------------------------------------
 
-        if model and data.Box then
+        if data.Box then
 
             local useBox =
                 (data.Type == "Player" and ESP.Settings.PlayerBoxEnabled)
@@ -433,39 +433,20 @@ RunService.RenderStepped:Connect(function()
 
             if useBox then
 
-                local minX,minY = math.huge,math.huge
-                local maxX,maxY = -math.huge,-math.huge
-                local visible = 0
+                -- Scale box size based on distance
+                local scale = 1000 / dist
+                local boxW = scale * 1.2
+                local boxH = scale * 2.4
 
-                for _,corner in ipairs(GetBoundingBox(model)) do
+                local boxX = screenPos.X - boxW / 2
+                local boxY = screenPos.Y - boxH / 2
 
-                    local v,on = Camera:WorldToViewportPoint(corner)
+                boxX = boxX + ESP.Settings.OffsetY
 
-                    if on and v.Z > 0 then
-                        visible += 1
-                        minX = math.min(minX,v.X)
-                        minY = math.min(minY,v.Y)
-                        maxX = math.max(maxX,v.X)
-                        maxY = math.max(maxY,v.Y)
-                    end
-
-                end
-
-                if visible >= 4 then
-
-                    minX -= ESP.Settings.BoxPadding
-                    minY -= ESP.Settings.BoxPadding
-                    maxX += ESP.Settings.BoxPadding
-                    maxY += ESP.Settings.BoxPadding
-
-                    data.Box.Position = Vector2.new(minX,minY)
-                    data.Box.Size = Vector2.new(maxX-minX,maxY-minY)
-                    data.Box.Color = ESP.Colors.Box
-                    data.Box.Visible = true
-
-                else
-                    data.Box.Visible = false
-                end
+                data.Box.Position = Vector2.new(boxX, boxY)
+                data.Box.Size = Vector2.new(boxW, boxH)
+                data.Box.Color = ESP.Colors.Box
+                data.Box.Visible = true
 
             else
                 data.Box.Visible = false
@@ -567,3 +548,4 @@ RunService.RenderStepped:Connect(function()
 end)
 
 return ESP
+
