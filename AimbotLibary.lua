@@ -1,4 +1,3 @@
---v1
 local Aimbot = {}
 
 local Players = game:GetService("Players")
@@ -48,6 +47,7 @@ local function IsAlive(player)
     return hum and hum.Health > 0
 end
 
+-- Normal FOV check, requires target to be visible on screen
 local function GetClosestPlayerInFOV()
     local closestPart = nil
     local shortestDistance = math.huge
@@ -74,6 +74,42 @@ local function GetClosestPlayerInFOV()
             if not visible then continue end
 
             local distance = (Vector2.new(screenPos.X,screenPos.Y) - screenCenter).Magnitude
+
+            if distance <= Aimbot.Settings.FOVRadius and distance < shortestDistance then
+                shortestDistance = distance
+                closestPart = part
+            end
+        end
+    end
+
+    return closestPart
+end
+
+-- Through walls FOV check, ignores visibility
+local function GetClosestPlayerInFOVThroughWalls()
+    local closestPart = nil
+    local shortestDistance = math.huge
+
+    local screenCenter = Vector2.new(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
+    )
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            if Aimbot.Settings.TeamCheck and player.Team == LocalPlayer.Team then
+                continue
+            end
+
+            if Aimbot.Settings.AliveCheck and not IsAlive(player) then
+                continue
+            end
+
+            local part = player.Character:FindFirstChild(Aimbot.Settings.AimPart)
+            if not part then continue end
+
+            local screenPos, _ = Camera:WorldToViewportPoint(part.Position)
+            local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
 
             if distance <= Aimbot.Settings.FOVRadius and distance < shortestDistance then
                 shortestDistance = distance
@@ -134,9 +170,9 @@ if BulletModule and BulletModule.CreateBullet then
             return original(self, p66, p67, p68, p69, a, p70, b, p71)
         end
         isFiring = true
-        local target = GetClosestPlayerInFOV()
+        local target = GetClosestPlayerInFOVThroughWalls()
         if target and p69 then
-            local aimPos = target.Parent:FindFirstChild("Head") and target.Parent.Head.Position or target.Position
+            local aimPos = target.Position
             pcall(function()
                 p69.CFrame = CFrame.new(p69.Position, aimPos)
             end)
