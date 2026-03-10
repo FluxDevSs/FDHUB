@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v3.0
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v3.1
     Death safe + cleanup safe
 ]]
 
@@ -220,6 +220,7 @@ local function cleanup(object)
     if not data then return end
 
     if data.Text then data.Text:Remove() end
+    if data.HoldingText then data.HoldingText:Remove() end
     if data.Box then
         if type(data.Box) == "table" then
             RemoveCornerBox(data.Box)
@@ -282,10 +283,14 @@ function ESP:AddPlayer(player)
         skeletonLines[i] = NewLine()
     end
 
+    local holdingText = NewText()
+    holdingText.Size = 14  -- slightly smaller than name
+
     ESP.Objects[player] = {
         Type = "Player",
         Object = player,
         Text = NewText(),
+        HoldingText = holdingText,
         Box = NewCornerBox(),
         HPBar = NewHPBar(),
         SkeletonLines = skeletonLines
@@ -299,6 +304,7 @@ function ESP:AddPlayer(player)
                 if not data then return end
 
                 if data.Text then data.Text.Visible = false end
+                if data.HoldingText then data.HoldingText.Visible = false end
                 if data.Box then
                     if type(data.Box) == "table" then SetCornerBoxVisible(data.Box, false)
                     else data.Box.Visible = false end
@@ -555,6 +561,7 @@ RunService.RenderStepped:Connect(function()
     if not ESP.Settings.Enabled then
         for _,data in pairs(ESP.Objects) do
             if data.Text then data.Text.Visible = false end
+            if data.HoldingText then data.HoldingText.Visible = false end
             if data.Box then
                 if type(data.Box) == "table" then SetCornerBoxVisible(data.Box, false)
                 else data.Box.Visible = false end
@@ -581,6 +588,7 @@ RunService.RenderStepped:Connect(function()
             if not model or not model.Parent then
 
                 if data.Text then data.Text.Visible = false end
+                if data.HoldingText then data.HoldingText.Visible = false end
                 if data.Box then
                     if type(data.Box) == "table" then SetCornerBoxVisible(data.Box, false)
                     else data.Box.Visible = false end
@@ -618,6 +626,7 @@ RunService.RenderStepped:Connect(function()
 
         if not onScreen then
             if data.Text then data.Text.Visible = false end
+            if data.HoldingText then data.HoldingText.Visible = false end
             if data.Box then
                 if type(data.Box) == "table" then SetCornerBoxVisible(data.Box, false)
                 else data.Box.Visible = false end
@@ -732,12 +741,29 @@ RunService.RenderStepped:Connect(function()
                         end
 
                         data.Text.Visible = true
+
+                        -- Show what the player is holding below their name
+                        local holdingVal = data.Object:FindFirstChild("Holding")
+                        local holdingText = holdingVal and tostring(holdingVal.Value) or ""
+                        if holdingText ~= "" then
+                            data.HoldingText.Text = holdingText
+                            data.HoldingText.Color = Color3.fromRGB(255,220,100)
+                            data.HoldingText.Position = Vector2.new(
+                                data.Text.Position.X,
+                                data.Text.Position.Y + data.Text.Size + 2
+                            )
+                            data.HoldingText.Visible = true
+                        else
+                            data.HoldingText.Visible = false
+                        end
                     else
                         data.Text.Visible = false
+                        data.HoldingText.Visible = false
                     end
 
                 else
                     data.Text.Visible = false
+                    if data.HoldingText then data.HoldingText.Visible = false end
                 end
 
             end
