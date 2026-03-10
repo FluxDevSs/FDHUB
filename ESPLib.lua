@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.27
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.28
     Death safe + cleanup safe
 ]]
 
@@ -33,12 +33,21 @@ ESP.Settings = {
     HPEnabled = false,
     HPWidth = 4,
 
-    MaxDistance = 5000,
     PositionMode = "HumanoidRootPart",
 
     OffsetY = 0,
     BoxPadding = 3,
-    BoxSmoothing = 0.18
+    BoxSmoothing = 0.18,
+
+    -- Per-category max distances
+    MaxDistance = {
+        Player    = 1000,
+        NPC       = 500,
+        item      = 200,
+        weapon    = 200,
+        corpse    = 200,
+        container = 500,
+    }
 }
 
 ESP.Colors = {
@@ -512,6 +521,28 @@ RunService.RenderStepped:Connect(function()
         end
 
         local dist = (Camera.CFrame.Position - root.Position).Magnitude
+
+        -- Per-category distance culling
+        do
+            local maxDist
+            if data.Type == "Player" then
+                maxDist = ESP.Settings.MaxDistance.Player
+            elseif data.Type == "NPC" then
+                maxDist = ESP.Settings.MaxDistance.NPC
+            elseif data.Type == "Part" and data.EspCategory then
+                maxDist = ESP.Settings.MaxDistance[data.EspCategory]
+            end
+
+            if maxDist and dist > maxDist then
+                if data.Text then data.Text.Visible = false end
+                if data.Box then data.Box.Visible = false end
+                if data.HPBar then data.HPBar.Visible = false end
+                if data.SkeletonLines then
+                    for _,l in pairs(data.SkeletonLines) do l.Visible = false end
+                end
+                continue
+            end
+        end
 
 ------------------------------------------------
 -- TEXT
