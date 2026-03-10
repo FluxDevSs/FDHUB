@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.32
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.33
     Death safe + cleanup safe
 ]]
 
@@ -42,6 +42,7 @@ ESP.Settings = {
 }
 
 ESP.Colors = {
+    Container = Color3.fromRGB(255,165,0),
     Player = Color3.fromRGB(255,255,255),
     NPC = Color3.fromRGB(255,120,120),
     Item = Color3.fromRGB(0,255,150),
@@ -309,6 +310,8 @@ function ESP:TrackFolder(key, folder, category, Lookups)
             return Lookups.GunLookup[name] == true
         elseif category == "corpse" then
             return not Lookups.ItemLookup[name] and not Lookups.GunLookup[name]
+        elseif category == "container" then
+            return Lookups.ContainerLookup[name] == true
         end
         return false
     end
@@ -397,7 +400,7 @@ function ESP:Untrack(key)
     end
 
     -- Map folder keys to their EspCategory values
-    local categoryMap = { items = "item", weapons = "weapon", corpses = "corpse" }
+    local categoryMap = { items = "item", weapons = "weapon", corpses = "corpse", containers = "container" }
     local targetCategory = categoryMap[key] or key
 
     local toRemove = {}
