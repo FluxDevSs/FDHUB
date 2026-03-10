@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.888
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
     Death safe + cleanup safe
 ]]
 
@@ -762,9 +762,13 @@ RunService.RenderStepped:Connect(function()
                             holdingStr = "[no Holding]"
                         end
                         if holdingStr ~= "" then
-                            local holdY = ESP.Settings.NameEnabled
-                                and (anchorY + data.Text.Size + 2)
-                                or  (anchorY)
+                            -- Position below the box if visible, otherwise below the name
+                            local holdY
+                            if data.BoxBounds then
+                                holdY = data.BoxBounds.Y + data.BoxBounds.H + 2
+                            else
+                                holdY = anchorY + data.Text.Size + 2
+                            end
                             data.HoldingText.Text     = holdingStr
                             data.HoldingText.Color    = Color3.fromRGB(255,220,100)
                             data.HoldingText.Position = Vector2.new(anchorX, holdY)
