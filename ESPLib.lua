@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v3.1
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
     Death safe + cleanup safe
 ]]
 
@@ -718,52 +718,53 @@ RunService.RenderStepped:Connect(function()
                     data.Text.Visible = false
                 end
 
-            -- Players: gated by NameEnabled
+            -- Players: name gated by NameEnabled, holding always shown
             elseif data.Type == "Player" then
 
-                if ESP.Settings.NameEnabled then
+                local head = model:FindFirstChild("Head")
+                local pos  = head and (head.Position + Vector3.new(0,0.6,0)) or root.Position
+                local screen, on = WorldToScreen(pos)
 
-                    local head = model:FindFirstChild("Head")
-                    local pos  = head and (head.Position + Vector3.new(0,0.6,0)) or root.Position
-                    local screen, on = WorldToScreen(pos)
+                if on then
+                    -- Figure out anchor X/Y for text (box top or head position)
+                    local anchorX, anchorY
+                    if data.BoxBounds then
+                        anchorX = data.BoxBounds.X + data.BoxBounds.W / 2
+                        anchorY = data.BoxBounds.Y - data.Text.Size - 2
+                    else
+                        anchorX = screen.X
+                        anchorY = screen.Y - data.Text.Size - 2
+                    end
 
-                    if on then
-                        data.Text.Text  = string.format("%s [%.0fm]", data.Object.Name, dist)
-                        data.Text.Color = ESP.Colors.Player
-
-                        if data.BoxBounds then
-                            data.Text.Position = Vector2.new(
-                                data.BoxBounds.X + data.BoxBounds.W / 2,
-                                data.BoxBounds.Y - data.Text.Size - 2
-                            )
-                        else
-                            data.Text.Position = Vector2.new(screen.X, screen.Y - data.Text.Size - 2)
-                        end
-
-                        data.Text.Visible = true
-
-                        -- Show what the player is holding below their name
-                        local holdingVal = data.Object:FindFirstChild("Holding")
-                        local holdingText = holdingVal and tostring(holdingVal.Value) or ""
-                        if holdingText ~= "" then
-                            data.HoldingText.Text = holdingText
-                            data.HoldingText.Color = Color3.fromRGB(255,220,100)
-                            data.HoldingText.Position = Vector2.new(
-                                data.Text.Position.X,
-                                data.Text.Position.Y + data.Text.Size + 2
-                            )
-                            data.HoldingText.Visible = true
-                        else
-                            data.HoldingText.Visible = false
-                        end
+                    -- Name label — gated by NameEnabled
+                    if ESP.Settings.NameEnabled then
+                        data.Text.Text     = string.format("%s [%.0fm]", data.Object.Name, dist)
+                        data.Text.Color    = ESP.Colors.Player
+                        data.Text.Position = Vector2.new(anchorX, anchorY)
+                        data.Text.Visible  = true
                     else
                         data.Text.Visible = false
+                    end
+
+                    -- Holding label — always shown independently
+                    local holdingVal = data.Object:FindFirstChild("Holding")
+                    local holdingStr = holdingVal and tostring(holdingVal.Value) or ""
+                    if holdingStr ~= "" then
+                        -- Position below name if visible, otherwise at anchor
+                        local holdY = ESP.Settings.NameEnabled
+                            and (anchorY + data.Text.Size + 2)
+                            or  (anchorY)
+                        data.HoldingText.Text     = holdingStr
+                        data.HoldingText.Color    = Color3.fromRGB(255,220,100)
+                        data.HoldingText.Position = Vector2.new(anchorX, holdY)
+                        data.HoldingText.Visible  = true
+                    else
                         data.HoldingText.Visible = false
                     end
 
                 else
                     data.Text.Visible = false
-                    if data.HoldingText then data.HoldingText.Visible = false end
+                    data.HoldingText.Visible = false
                 end
 
             end
