@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.27
     Death safe + cleanup safe
 ]]
 
@@ -83,12 +83,55 @@ local function NewText()
     return t
 end
 
-local function NewBox()
-    local b = Drawing.new("Square")
-    b.Visible = false
-    b.Filled = false
-    b.Thickness = ESP.Settings.BoxThickness
-    return b
+-- Corner bracket box: 8 lines (2 per corner)
+local function NewCornerBox()
+    local lines = {}
+    for i = 1, 8 do
+        local l = Drawing.new("Line")
+        l.Visible = false
+        l.Thickness = ESP.Settings.BoxThickness
+        l.Color = ESP.Colors.Box
+        lines[i] = l
+    end
+    return lines
+end
+
+-- Helper to set all corner lines visible/invisible
+local function SetCornerBoxVisible(lines, v)
+    for _, l in ipairs(lines) do l.Visible = v end
+end
+
+-- Helper to remove all corner lines
+local function RemoveCornerBox(lines)
+    for _, l in ipairs(lines) do l:Remove() end
+end
+
+-- Draw corner brackets given box X,Y,W,H and color
+-- Corner length = 20% of the shorter side
+local function DrawCornerBox(lines, x, y, w, h, color)
+    local cx = math.floor(math.min(w, h) * 0.22)
+    local x2, y2 = x + w, y + h
+    local t = ESP.Settings.BoxThickness
+
+    for _, l in ipairs(lines) do
+        l.Color = color
+        l.Thickness = t
+    end
+
+    -- Top-left
+    lines[1].From = Vector2.new(x, y);         lines[1].To = Vector2.new(x + cx, y)
+    lines[2].From = Vector2.new(x, y);         lines[2].To = Vector2.new(x, y + cx)
+    -- Top-right
+    lines[3].From = Vector2.new(x2, y);        lines[3].To = Vector2.new(x2 - cx, y)
+    lines[4].From = Vector2.new(x2, y);        lines[4].To = Vector2.new(x2, y + cx)
+    -- Bottom-left
+    lines[5].From = Vector2.new(x, y2);        lines[5].To = Vector2.new(x + cx, y2)
+    lines[6].From = Vector2.new(x, y2);        lines[6].To = Vector2.new(x, y2 - cx)
+    -- Bottom-right
+    lines[7].From = Vector2.new(x2, y2);       lines[7].To = Vector2.new(x2 - cx, y2)
+    lines[8].From = Vector2.new(x2, y2);       lines[8].To = Vector2.new(x2, y2 - cx)
+
+    SetCornerBoxVisible(lines, true)
 end
 
 local function NewLine()
@@ -177,7 +220,13 @@ local function cleanup(object)
     if not data then return end
 
     if data.Text then data.Text:Remove() end
-    if data.Box then data.Box:Remove() end
+    if data.Box then
+        if type(data.Box) == "table" then
+            RemoveCornerBox(data.Box)
+        else
+            data.Box:Remove()
+        end
+    end
     if data.HPBar then data.HPBar:Remove() end
 
     if data.SkeletonLines then
@@ -237,7 +286,7 @@ function ESP:AddPlayer(player)
         Type = "Player",
         Object = player,
         Text = NewText(),
-        Box = NewBox(),
+        Box = NewCornerBox(),
         HPBar = NewHPBar(),
         SkeletonLines = skeletonLines
     }
@@ -250,7 +299,10 @@ function ESP:AddPlayer(player)
                 if not data then return end
 
                 if data.Text then data.Text.Visible = false end
-                if data.Box then data.Box.Visible = false end
+                if data.Box then
+                    if type(data.Box) == "table" then SetCornerBoxVisible(data.Box, false)
+                    else data.Box.Visible = false end
+                end
                 if data.HPBar then data.HPBar.Visible = false end
 
                 if data.SkeletonLines then
@@ -285,7 +337,7 @@ function ESP:AddNPC(model,name)
         Object = model,
         Name = name or model.Name,
         Text = NewText(),
-        Box = NewBox(),
+        Box = NewCornerBox(),
         HPBar = NewHPBar(),
         SkeletonLines = skeletonLines
     }
@@ -490,7 +542,10 @@ RunService.RenderStepped:Connect(function()
     if not ESP.Settings.Enabled then
         for _,data in pairs(ESP.Objects) do
             if data.Text then data.Text.Visible = false end
-            if data.Box then data.Box.Visible = false end
+            if data.Box then
+                if type(data.Box) == "table" then SetCornerBoxVisible(data.Box, false)
+                else data.Box.Visible = false end
+            end
             if data.HPBar then data.HPBar.Visible = false end
             if data.SkeletonLines then
                 for _,l in pairs(data.SkeletonLines) do
@@ -513,7 +568,10 @@ RunService.RenderStepped:Connect(function()
             if not model or not model.Parent then
 
                 if data.Text then data.Text.Visible = false end
-                if data.Box then data.Box.Visible = false end
+                if data.Box then
+                    if type(data.Box) == "table" then SetCornerBoxVisible(data.Box, false)
+                    else data.Box.Visible = false end
+                end
                 if data.HPBar then data.HPBar.Visible = false end
 
                 if data.SkeletonLines then
@@ -542,7 +600,10 @@ RunService.RenderStepped:Connect(function()
 
         if not onScreen then
             if data.Text then data.Text.Visible = false end
-            if data.Box then data.Box.Visible = false end
+            if data.Box then
+                if type(data.Box) == "table" then SetCornerBoxVisible(data.Box, false)
+                else data.Box.Visible = false end
+            end
             if data.HPBar then data.HPBar.Visible = false end
             if data.SkeletonLines then
                 for _,l in pairs(data.SkeletonLines) do
@@ -567,7 +628,10 @@ RunService.RenderStepped:Connect(function()
 
             if maxDist and dist > maxDist then
                 if data.Text then data.Text.Visible = false end
-                if data.Box then data.Box.Visible = false end
+                if data.Box then
+                    if type(data.Box) == "table" then SetCornerBoxVisible(data.Box, false)
+                    else data.Box.Visible = false end
+                end
                 if data.HPBar then data.HPBar.Visible = false end
                 if data.SkeletonLines then
                     for _,l in pairs(data.SkeletonLines) do l.Visible = false end
@@ -613,11 +677,10 @@ RunService.RenderStepped:Connect(function()
                     data.Text.Text = string.format("%s [%.0fm]", data.Name, dist)
                     data.Text.Color = color
 
-                    if data.Box and data.Box.Visible then
-                        data.Box.Color = ESP.Colors.Box
+                    if data.BoxBounds then
                         data.Text.Position = Vector2.new(
-                            data.Box.Position.X + data.Box.Size.X / 2,
-                            data.Box.Position.Y - data.Text.Size - 2
+                            data.BoxBounds.X + data.BoxBounds.W / 2,
+                            data.BoxBounds.Y - data.Text.Size - 2
                         )
                     else
                         data.Text.Position = Vector2.new(screen.X, screen.Y - data.Text.Size - 2)
@@ -641,11 +704,10 @@ RunService.RenderStepped:Connect(function()
                         data.Text.Text  = string.format("%s [%.0fm]", data.Object.Name, dist)
                         data.Text.Color = ESP.Colors.Player
 
-                        if data.Box and data.Box.Visible then
-                            data.Box.Color = ESP.Colors.Box
+                        if data.BoxBounds then
                             data.Text.Position = Vector2.new(
-                                data.Box.Position.X + data.Box.Size.X / 2,
-                                data.Box.Position.Y - data.Text.Size - 2
+                                data.BoxBounds.X + data.BoxBounds.W / 2,
+                                data.BoxBounds.Y - data.Text.Size - 2
                             )
                         else
                             data.Text.Position = Vector2.new(screen.X, screen.Y - data.Text.Size - 2)
@@ -664,10 +726,12 @@ RunService.RenderStepped:Connect(function()
         end
 
 ------------------------------------------------
--- BOX (Head-to-foot screen projection)
+-- CORNER BOX (Head-to-foot screen projection)
 ------------------------------------------------
 
-        if data.Box then
+        data.BoxBounds = nil  -- reset each frame
+
+        if data.Box and type(data.Box) == "table" then
 
             local useBox =
                 (data.Type == "Player" and ESP.Settings.PlayerBoxEnabled)
@@ -700,22 +764,25 @@ RunService.RenderStepped:Connect(function()
 
                         local boxX = screenPos.X - boxW / 2 - pad
                         local boxY = topScreen.Y - pad
+                        local boxW2 = boxW + pad * 2
+                        local boxH2 = boxH + pad * 2
 
-                        data.Box.Position = Vector2.new(boxX, boxY)
-                        data.Box.Size     = Vector2.new(boxW + pad * 2, boxH + pad * 2)
-                        data.Box.Color    = ESP.Colors.Box
-                        data.Box.Visible  = true
+                        local boxColor = (data.Type == "Player") and ESP.Colors.Player or ESP.Colors.NPC
+                        DrawCornerBox(data.Box, boxX, boxY, boxW2, boxH2, boxColor)
+
+                        -- store bounds for text anchoring and HP bar
+                        data.BoxBounds = { X = boxX, Y = boxY, W = boxW2, H = boxH2 }
 
                     else
-                        data.Box.Visible = false
+                        SetCornerBoxVisible(data.Box, false)
                     end
 
                 else
-                    data.Box.Visible = false
+                    SetCornerBoxVisible(data.Box, false)
                 end
 
             else
-                data.Box.Visible = false
+                SetCornerBoxVisible(data.Box, false)
             end
 
         end
@@ -728,22 +795,16 @@ RunService.RenderStepped:Connect(function()
 
             local humanoid = model:FindFirstChildOfClass("Humanoid")
 
-            if humanoid and data.Box.Visible then
+            if humanoid and data.BoxBounds then
 
                 local percent = math.clamp(humanoid.Health / humanoid.MaxHealth,0,1)
+                local height = data.BoxBounds.H * percent
 
-                local boxPos = data.Box.Position
-                local boxSize = data.Box.Size
-
-                local height = boxSize.Y * percent
-
-                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth,height)
-
+                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth, height)
                 data.HPBar.Position = Vector2.new(
-                    boxPos.X - ESP.Settings.HPWidth - 2,
-                    boxPos.Y + (boxSize.Y - height)
+                    data.BoxBounds.X - ESP.Settings.HPWidth - 2,
+                    data.BoxBounds.Y + (data.BoxBounds.H - height)
                 )
-
                 data.HPBar.Color = ESP.Colors.HP
                 data.HPBar.Visible = true
 
@@ -813,71 +874,6 @@ RunService.RenderStepped:Connect(function()
 
 end)
 
-------------------------------------------------
--- CROSSHAIR PLAYER INFO
--- Shows target name + visibility in screen center when looking at a player/NPC
-------------------------------------------------
 
-local VisibilityIndicator = Drawing.new("Text")
-VisibilityIndicator.Visible = false
-VisibilityIndicator.Center = true
-VisibilityIndicator.Outline = true
-VisibilityIndicator.Font = ESP.Settings.Font
-VisibilityIndicator.Size = 18
-
-ESP.Settings.CrosshairInfo = true
-
-function ESP:SetCrosshairInfo(v)
-    ESP.Settings.CrosshairInfo = v
-    if not v then VisibilityIndicator.Visible = false end
-end
-
-RunService.RenderStepped:Connect(function()
-    if not ESP.Settings.Enabled or not ESP.Settings.CrosshairInfo then
-        VisibilityIndicator.Visible = false
-        return
-    end
-
-    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-
-    -- Check if ANY player or tracked NPC on screen is visible to us
-    local anyVisible = false
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player == LocalPlayer then continue end
-        local char = player.Character
-        if not char then continue end
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
-        local _, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-        if not onScreen then continue end
-        if IsVisible(Camera.CFrame.Position, char) then
-            anyVisible = true
-            break
-        end
-    end
-
-    if not anyVisible then
-        for _, data in pairs(ESP.Objects) do
-            if data.Type ~= "NPC" then continue end
-            local model = data.Object
-            if not model or not model.Parent then continue end
-            local root = GetRoot(model)
-            if not root then continue end
-            local _, onScreen = Camera:WorldToViewportPoint(root.Position)
-            if not onScreen then continue end
-            if IsVisible(Camera.CFrame.Position, model) then
-                anyVisible = true
-                break
-            end
-        end
-    end
-
-    -- Always show the indicator, color reflects whether anyone visible is on screen
-    VisibilityIndicator.Text = anyVisible and "VISIBLE" or "NOT VISIBLE"
-    VisibilityIndicator.Color = anyVisible and Color3.fromRGB(0,255,80) or Color3.fromRGB(255,60,60)
-    VisibilityIndicator.Position = Vector2.new(screenCenter.X, screenCenter.Y + 30)
-    VisibilityIndicator.Visible = true
-end)
 
 return ESP
