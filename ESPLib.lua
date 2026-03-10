@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.27
     Death safe + cleanup safe
 ]]
 
@@ -369,23 +369,20 @@ function ESP:TrackDescendants(key, container)
         ESP._trackedDescendants[key] = nil
     end
 
-    -- Only track direct child zones, then direct child Models within each zone
-    -- This prevents tracking nested sub-models (limbs, accessories, etc.)
+    -- Only track Models that contain a Humanoid — guaranteed to be an actual NPC character
+    local function isNPC(obj)
+        if not obj:IsA("Model") then return false end
+        return obj:FindFirstChildOfClass("Humanoid") ~= nil
+    end
+
     local function tryAddNPC(obj)
-        if not obj:IsA("Model") then return end
-        -- Only add if parent is a direct child of container (a zone folder) or container itself
-        local parent = obj.Parent
-        if parent == container or (parent and parent.Parent == container) then
+        if isNPC(obj) then
             ESP:AddNPC(obj, obj.Name)
         end
     end
 
-    for _, zone in ipairs(container:GetChildren()) do
-        for _, obj in ipairs(zone:GetChildren()) do
-            tryAddNPC(obj)
-        end
-        -- also handle if NPCs are direct children of container
-        tryAddNPC(zone)
+    for _, obj in ipairs(container:GetDescendants()) do
+        tryAddNPC(obj)
     end
 
     ESP._trackedDescendants[key] = container.DescendantAdded:Connect(function(obj)
