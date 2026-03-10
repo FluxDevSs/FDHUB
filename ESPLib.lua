@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.28
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.29
     Death safe + cleanup safe
 ]]
 
@@ -47,13 +47,17 @@ ESP.Settings = {
         weapon    = 200,
         corpse    = 200,
         container = 500,
-    }
+    },
+
+    VisibilityCheck = false, -- when true, turns player/NPC ESP green if they can see you
 }
 
 ESP.Colors = {
     Container = Color3.fromRGB(255,165,0),
     Player = Color3.fromRGB(255,255,255),
+    PlayerVisible = Color3.fromRGB(0,255,80),   -- color when player can see you
     NPC = Color3.fromRGB(255,120,120),
+    NPCVisible = Color3.fromRGB(0,255,80),       -- color when NPC can see you
     Item = Color3.fromRGB(0,255,150),
     Weapon = Color3.fromRGB(255,200,0),
     Corpse = Color3.fromRGB(180,0,255),
@@ -114,6 +118,28 @@ local function GetRoot(model)
     return model:FindFirstChild("HumanoidRootPart")
         or model.PrimaryPart
         or model:FindFirstChildWhichIsA("BasePart")
+end
+
+local function IsVisible(fromPos, targetModel)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+    -- Exclude the target model and local character so we don't hit ourselves or them
+    local filter = {targetModel}
+    if LocalPlayer.Character then
+        table.insert(filter, LocalPlayer.Character)
+    end
+    raycastParams.FilterDescendantsInstances = filter
+
+    local head = targetModel:FindFirstChild("Head")
+    local targetPos = head and head.Position or (targetModel.PrimaryPart and targetModel.PrimaryPart.Position)
+    if not targetPos then return false end
+
+    local direction = targetPos - fromPos
+    local result = workspace:Raycast(fromPos, direction, raycastParams)
+
+    -- If nothing was hit, or what was hit is inside the target model, it's visible
+    return result == nil or result.Instance:IsDescendantOf(targetModel)
 end
 
 local function GetBoundingBox(model)
@@ -186,6 +212,10 @@ end
 
 function ESP:SetNameEnabled(v)
     ESP.Settings.NameEnabled = v
+end
+
+function ESP:SetVisibilityCheck(v)
+    ESP.Settings.VisibilityCheck = v
 end
 
 ------------------------------------------------
@@ -318,7 +348,9 @@ function ESP:TrackFolder(key, folder, category, Lookups)
         elseif category == "weapon" then
             return Lookups.GunLookup[name] == true
         elseif category == "corpse" then
-            return not Lookups.ItemLookup[name] and not Lookups.GunLookup[name]
+            -- Corpses are dropped NPC bodies — they have a Humanoid but are not items/guns
+            if Lookups.ItemLookup[name] or Lookups.GunLookup[name] then return false end
+            return model:FindFirstChildOfClass("Humanoid") ~= nil
         elseif category == "container" then
             return Lookups.ContainerLookup[name] == true
         end
@@ -578,10 +610,15 @@ RunService.RenderStepped:Connect(function()
                 local screen, on = WorldToScreen(pos)
 
                 if on then
-                    data.Text.Text = string.format("%s [%.0fm]", data.Name, dist)
-                    data.Text.Color = color
+                    local isVis = ESP.Settings.VisibilityCheck and IsVisible(Camera.CFrame.Position, model)
+                    local npcColor = isVis and ESP.Colors.NPCVisible or color
+                    local visTag = isVis and " [VISIBLE]" or ""
+
+                    data.Text.Text = string.format("%s [%.0fm]%s", data.Name, dist, visTag)
+                    data.Text.Color = npcColor
 
                     if data.Box and data.Box.Visible then
+                        data.Box.Color = npcColor
                         data.Text.Position = Vector2.new(
                             data.Box.Position.X + data.Box.Size.X / 2,
                             data.Box.Position.Y - data.Text.Size - 2
@@ -605,10 +642,15 @@ RunService.RenderStepped:Connect(function()
                     local screen, on = WorldToScreen(pos)
 
                     if on then
-                        data.Text.Text  = string.format("%s [%.0fm]", data.Object.Name, dist)
-                        data.Text.Color = ESP.Colors.Player
+                        local isVis = ESP.Settings.VisibilityCheck and IsVisible(Camera.CFrame.Position, model)
+                        local playerColor = isVis and ESP.Colors.PlayerVisible or ESP.Colors.Player
+                        local visTag = isVis and " [VISIBLE]" or ""
+
+                        data.Text.Text  = string.format("%s [%.0fm]%s", data.Object.Name, dist, visTag)
+                        data.Text.Color = playerColor
 
                         if data.Box and data.Box.Visible then
+                            data.Box.Color = playerColor
                             data.Text.Position = Vector2.new(
                                 data.Box.Position.X + data.Box.Size.X / 2,
                                 data.Box.Position.Y - data.Text.Size - 2
