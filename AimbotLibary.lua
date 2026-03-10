@@ -1,3 +1,4 @@
+--v1.2
 local Aimbot = {}
 
 local Players = game:GetService("Players")
@@ -147,7 +148,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Bullet aimbot hook
+-- Bullet hook
 local BulletModule
 for _, v in pairs(getloadedmodules()) do
     if v.Name == "Bullet" then
@@ -162,24 +163,37 @@ end
 if BulletModule and BulletModule.CreateBullet then
     local isFiring = false
     local original
+
     original = hookfunction(BulletModule.CreateBullet, newcclosure(function(self, p66, p67, p68, p69, a, p70, b, p71)
         if not Aimbot.Settings.BulletAimbot then
             return original(self, p66, p67, p68, p69, a, p70, b, p71)
         end
+
         if isFiring then
             return original(self, p66, p67, p68, p69, a, p70, b, p71)
         end
+
         isFiring = true
-        local target = GetClosestPlayerInFOVThroughWalls()
-        if target and p69 then
-            local aimPos = target.Position
+
+        -- Aim redirect
+        local ok, target = pcall(GetClosestPlayerInFOVThroughWalls)
+        if ok and target and p69 then
             pcall(function()
-                p69.CFrame = CFrame.new(p69.Position, aimPos)
+                p69.CFrame = CFrame.new(p69.Position, target.Position)
             end)
         end
-        local result = table.pack(original(self, p66, p67, p68, p69, a, p70, b, p71))
+
+        -- Always reset isFiring, even if original errors
+        local results = table.pack(pcall(original, self, p66, p67, p68, p69, a, p70, b, p71))
         isFiring = false
-        return table.unpack(result)
+
+        local success = table.remove(results, 1)
+        if success then
+            return table.unpack(results, 1, results.n - 1)
+        else
+            -- original errored — return nothing / warn silently
+            warn("[BulletHook] original error:", results[1])
+        end
     end))
 else
     warn("BulletModule not found — bullet aimbot unavailable")
@@ -210,3 +224,4 @@ function Aimbot:SetBulletAimbot(state)
 end
 
 return Aimbot
+
