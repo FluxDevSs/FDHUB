@@ -3659,4 +3659,171 @@ function library:CreateWindow(name, size, hidebutton)
     return window
 end
 
+function library:CreateInfoBox(position)
+    local infobox = { }
+    infobox.lines = { }
+    infobox.Visible = true
+
+    infobox.main = Instance.new("ScreenGui", coregui)
+    infobox.main.Name = "InfoBox"
+    infobox.main.DisplayOrder = 16
+    if syn then
+        syn.protect_gui(infobox.main)
+    end
+
+    if getgenv().infobox then
+        getgenv().infobox:Remove()
+    end
+    getgenv().infobox = infobox.main
+
+    -- Dragging
+    local dragging, dragInput, dragStart, startPos
+    
+    infobox.frame = Instance.new("Frame", infobox.main)
+    infobox.frame.Name = "InfoBoxFrame"
+    infobox.frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    infobox.frame.BackgroundTransparency = 0.3
+    infobox.frame.BorderSizePixel = 0
+    infobox.frame.Position = UDim2.fromOffset(position and position.X or 10, position and position.Y or 10)
+    infobox.frame.Size = UDim2.fromOffset(200, 20) -- will auto-resize
+    infobox.frame.AutomaticSize = Enum.AutomaticSize.Y
+
+    -- Outline layers (matches lib style)
+    infobox.BlackOutline = Instance.new("Frame", infobox.frame)
+    infobox.BlackOutline.ZIndex = 1
+    infobox.BlackOutline.Size = UDim2.new(1, 2, 1, 2)
+    infobox.BlackOutline.BorderSizePixel = 0
+    infobox.BlackOutline.BackgroundColor3 = library.theme.outlinecolor2
+    infobox.BlackOutline.Position = UDim2.fromOffset(-1, -1)
+
+    infobox.Outline = Instance.new("Frame", infobox.frame)
+    infobox.Outline.ZIndex = 0
+    infobox.Outline.Size = UDim2.new(1, 4, 1, 4)
+    infobox.Outline.BorderSizePixel = 0
+    infobox.Outline.BackgroundColor3 = library.theme.outlinecolor
+    infobox.Outline.Position = UDim2.fromOffset(-2, -2)
+
+    infobox.BlackOutline2 = Instance.new("Frame", infobox.frame)
+    infobox.BlackOutline2.ZIndex = -1
+    infobox.BlackOutline2.Size = UDim2.new(1, 6, 1, 6)
+    infobox.BlackOutline2.BorderSizePixel = 0
+    infobox.BlackOutline2.BackgroundColor3 = library.theme.outlinecolor2
+    infobox.BlackOutline2.Position = UDim2.fromOffset(-3, -3)
+
+    -- Top accent line
+    infobox.TopLine = Instance.new("Frame", infobox.frame)
+    infobox.TopLine.ZIndex = 5
+    infobox.TopLine.Size = UDim2.new(1, 0, 0, 1)
+    infobox.TopLine.BorderSizePixel = 0
+    infobox.TopLine.BackgroundColor3 = library.theme.accentcolor
+
+    -- Content container
+    infobox.content = Instance.new("Frame", infobox.frame)
+    infobox.content.Name = "Content"
+    infobox.content.BackgroundTransparency = 1
+    infobox.content.BorderSizePixel = 0
+    infobox.content.ZIndex = 5
+    infobox.content.Size = UDim2.new(1, 0, 0, 0)
+    infobox.content.AutomaticSize = Enum.AutomaticSize.Y
+    infobox.content.Position = UDim2.fromOffset(0, 1)
+
+    infobox.listlayout = Instance.new("UIListLayout", infobox.content)
+    infobox.listlayout.FillDirection = Enum.FillDirection.Vertical
+    infobox.listlayout.SortOrder = Enum.SortOrder.LayoutOrder
+    infobox.listlayout.Padding = UDim.new(0, 0)
+
+    infobox.padding = Instance.new("UIPadding", infobox.content)
+    infobox.padding.PaddingTop = UDim.new(0, 4)
+    infobox.padding.PaddingBottom = UDim.new(0, 4)
+    infobox.padding.PaddingLeft = UDim.new(0, 6)
+    infobox.padding.PaddingRight = UDim.new(0, 6)
+
+    -- Dragging
+    infobox.frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = infobox.frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    infobox.frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    uis.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            infobox.frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    -- Clear all lines
+    function infobox:Clear()
+        for _, v in pairs(infobox.content:GetChildren()) do
+            if v:IsA("TextLabel") then
+                v:Destroy()
+            end
+        end
+        infobox.lines = { }
+    end
+
+    -- Add a single line. indent = 0,1,2... for nesting level
+    function infobox:AddLine(text, indent, color)
+        local indentStr = string.rep("    ", indent or 0)
+        local label = Instance.new("TextLabel", infobox.content)
+        label.BackgroundTransparency = 1
+        label.BorderSizePixel = 0
+        label.ZIndex = 6
+        label.AutomaticSize = Enum.AutomaticSize.XY
+        label.Font = library.theme.font
+        label.Text = indentStr .. tostring(text)
+        label.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+        label.TextSize = library.theme.fontsize
+        label.TextStrokeTransparency = 1
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.LayoutOrder = #infobox.lines + 1
+        table.insert(infobox.lines, label)
+        return label
+    end
+
+    -- Set the entire box from a table. 
+    -- Format: { { text = "weapons:", indent = 0 }, { text = "AK47", indent = 1 }, ... }
+    function infobox:SetLines(lineTable)
+        infobox:Clear()
+        for _, v in pairs(lineTable) do
+            infobox:AddLine(v.text, v.indent or 0, v.color)
+        end
+    end
+
+    -- Update a specific line by index
+    function infobox:UpdateLine(index, text, indent, color)
+        local label = infobox.lines[index]
+        if label then
+            local indentStr = string.rep("    ", indent or 0)
+            label.Text = indentStr .. tostring(text)
+            if color then label.TextColor3 = color end
+        end
+    end
+
+    function infobox:SetVisible(v)
+        infobox.Visible = v
+        infobox.frame.Visible = v
+    end
+
+    runservice.Heartbeat:Connect(function()
+        infobox.frame.Visible = infobox.Visible
+    end)
+
+    return infobox
+end
+
 return library
