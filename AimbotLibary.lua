@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.2
+local Aimbot = {} -- v1.3
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -174,7 +174,8 @@ end
 
 local function findBulletFunction(tbl)
     for _, funcName in ipairs(FUNC_NAME_PATTERNS) do
-        if type(tbl[funcName]) == "function" then
+        local ok, val = pcall(function() return tbl[funcName] end)
+        if ok and type(val) == "function" then
             return funcName
         end
     end
