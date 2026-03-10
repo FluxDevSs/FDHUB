@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.4 (Velocity compatible)
+local Aimbot = {} -- v1.4
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -20,29 +20,16 @@ Aimbot.Settings = {
     BulletAimbot = false,
 }
 
--- Safe Drawing / FOV Circle
-if Drawing then
-    Aimbot.FOVCircle = Drawing.new("Circle")
-    Aimbot.FOVCircle.Visible = false
-    Aimbot.FOVCircle.Thickness = 1
-    Aimbot.FOVCircle.Filled = false
-    Aimbot.FOVCircle.NumSides = 64
-    Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
-    Aimbot.FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-    Aimbot.FOVCircle.Transparency = 1
-else
-    -- Stub so nothing errors when FOVCircle is referenced
-    Aimbot.FOVCircle = {
-        Visible = false,
-        Radius = 200,
-        Position = Vector2.new(0, 0),
-        Color = Color3.new(1, 1, 1),
-        Transparency = 1,
-    }
-    warn("[NOX] Drawing API not available on this executor — FOV circle disabled")
-end
+Aimbot.FOVCircle = Drawing.new("Circle")
+Aimbot.FOVCircle.Visible = false
+Aimbot.FOVCircle.Thickness = 1
+Aimbot.FOVCircle.Filled = false
+Aimbot.FOVCircle.NumSides = 64
+Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
+Aimbot.FOVCircle.Color = Color3.fromRGB(255,255,255)
+Aimbot.FOVCircle.Transparency = 1
 
-UserInputService.InputBegan:Connect(function(input, gp)
+UserInputService.InputBegan:Connect(function(input,gp)
     if gp then return end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         holdingRightClick = true
@@ -136,14 +123,9 @@ RunService.RenderStepped:Connect(function()
         Camera.ViewportSize.Y / 2
     )
 
-    -- Only update FOV circle if it's a real Drawing object
-    if Aimbot.FOVCircle and type(Aimbot.FOVCircle.Position) ~= "nil" then
-        pcall(function()
-            Aimbot.FOVCircle.Position = screenCenter
-            Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
-            Aimbot.FOVCircle.Visible = Aimbot.Settings.FOVVisible
-        end)
-    end
+    Aimbot.FOVCircle.Position = screenCenter
+    Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
+    Aimbot.FOVCircle.Visible = Aimbot.Settings.FOVVisible
 
     if not Aimbot.Settings.Enabled then return end
     if not holdingRightClick then return end
@@ -163,15 +145,18 @@ end)
 
 ------------------------------------------------
 -- BULLET AIMBOT HOOK
+-- Searches loaded modules broadly for any bullet/projectile creation function
 ------------------------------------------------
 
 local BulletModule = nil
 local BulletFuncName = nil
 
+-- Names to try when searching loaded modules (case-insensitive check below)
 local MODULE_NAME_PATTERNS = {
     "bullet", "projectile", "proj", "gun", "shoot", "fire", "ballistic"
 }
 
+-- Function key names that suggest bullet creation
 local FUNC_NAME_PATTERNS = {
     "CreateBullet", "FireBullet", "Shoot", "Fire", "NewBullet",
     "SpawnBullet", "CreateProjectile", "FireProjectile"
@@ -197,11 +182,24 @@ local function findBulletFunction(tbl)
     return nil
 end
 
--- Safe: check if getloadedmodules exists before calling it
-if getloadedmodules then
-    for _, v in pairs(getloadedmodules()) do
-        if not nameMatchesAny(v.Name, MODULE_NAME_PATTERNS) then continue end
+-- Search all loaded modules
+for _, v in pairs(getloadedmodules()) do
+    if not nameMatchesAny(v.Name, MODULE_NAME_PATTERNS) then continue end
 
+    local ok, result = pcall(require, v)
+    if not ok or type(result) ~= "table" then continue end
+
+    local funcName = findBulletFunction(result)
+    if funcName then
+        BulletModule = result
+        BulletFuncName = funcName
+        break
+    end
+end
+
+-- If still not found, do a broader scan of ALL loaded modules for bullet-like functions
+if not BulletModule then
+    for _, v in pairs(getloadedmodules()) do
         local ok, result = pcall(require, v)
         if not ok or type(result) ~= "table" then continue end
 
@@ -212,26 +210,9 @@ if getloadedmodules then
             break
         end
     end
-
-    if not BulletModule then
-        for _, v in pairs(getloadedmodules()) do
-            local ok, result = pcall(require, v)
-            if not ok or type(result) ~= "table" then continue end
-
-            local funcName = findBulletFunction(result)
-            if funcName then
-                BulletModule = result
-                BulletFuncName = funcName
-                break
-            end
-        end
-    end
-else
-    warn("[NOX] Silent Aim: getloadedmodules not supported on this executor — feature disabled")
 end
 
--- Safe: check if hookfunction and newcclosure exist before hooking
-if BulletModule and BulletFuncName and hookfunction and newcclosure then
+if BulletModule and BulletFuncName then
     local isFiring = false
     local original
 
@@ -258,6 +239,7 @@ if BulletModule and BulletFuncName and hookfunction and newcclosure then
                     break
                 end
 
+                -- Some games pass a CFrame or Vector3 direction directly
                 if typeof(v) == "CFrame" then
                     args[i] = CFrame.new(v.Position, target.Position)
                     break
@@ -274,8 +256,6 @@ if BulletModule and BulletFuncName and hookfunction and newcclosure then
         isFiring = false
         return table.unpack(result)
     end))
-elseif BulletModule and BulletFuncName then
-    warn("[NOX] Silent Aim: hookfunction/newcclosure not supported on this executor — feature disabled")
 else
     warn("[NOX] Silent Aim: No bullet module found in this game — feature disabled")
 end
@@ -307,10 +287,6 @@ end
 function Aimbot:SetBulletAimbot(state)
     if not BulletModule then
         warn("[NOX] Silent Aim unavailable — no compatible bullet module found in this game")
-        return
-    end
-    if not (hookfunction and newcclosure) then
-        warn("[NOX] Silent Aim unavailable — hookfunction/newcclosure not supported on this executor")
         return
     end
     self.Settings.BulletAimbot = state
