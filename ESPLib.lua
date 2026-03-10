@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.24
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.25
     Death safe + cleanup safe
 ]]
 
@@ -408,9 +408,12 @@ RunService.RenderStepped:Connect(function()
                 local screen,on = WorldToScreen(pos)
 
                 if on then
-                    data.Text.Text = string.format("%s [%.0fm]",name,dist)
+                    data.Text.Text = string.format("%s [%.0fm]", name, dist)
                     data.Text.Color = color
-                    data.Text.Position = screen
+                    data.Text.Position = Vector2.new(
+                        data.Box.Position.X + data.Box.Size.X / 2,  -- centered on box
+                        data.Box.Position.Y - data.Text.Size - 2     -- just above box top
+                    )
                     data.Text.Visible = true
                 else
                     data.Text.Visible = false
