@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.31
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.32
     Death safe + cleanup safe
 ]]
 
@@ -513,7 +513,8 @@ RunService.RenderStepped:Connect(function()
             -- Parts (item/weapon/corpse) always show their label independently
             if data.Type == "Part" then
 
-                local color = data.EspColor or ESP.Colors.Item
+                local catKey = data.EspCategory and (data.EspCategory:sub(1,1):upper() .. data.EspCategory:sub(2)) or "Item"
+                local color = ESP.Colors[catKey] or ESP.Colors.Item
                 local pos = root.Position
                 local screen, on = WorldToScreen(pos)
 
@@ -529,7 +530,7 @@ RunService.RenderStepped:Connect(function()
             -- NPC labels are also independent of NameEnabled
             elseif data.Type == "NPC" then
 
-                local color = data.EspColor or ESP.Colors.NPC
+                local color = ESP.Colors.NPC
                 local head  = model and model:FindFirstChild("Head")
                 local pos   = head and (head.Position + Vector3.new(0,0.6,0)) or root.Position
                 local screen, on = WorldToScreen(pos)
