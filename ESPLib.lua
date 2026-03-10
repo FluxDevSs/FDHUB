@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.29
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
     Death safe + cleanup safe
 ]]
 
@@ -610,15 +610,11 @@ RunService.RenderStepped:Connect(function()
                 local screen, on = WorldToScreen(pos)
 
                 if on then
-                    local isVis = ESP.Settings.VisibilityCheck and IsVisible(Camera.CFrame.Position, model)
-                    local npcColor = isVis and ESP.Colors.NPCVisible or color
-                    local visTag = isVis and " [VISIBLE]" or ""
-
-                    data.Text.Text = string.format("%s [%.0fm]%s", data.Name, dist, visTag)
-                    data.Text.Color = npcColor
+                    data.Text.Text = string.format("%s [%.0fm]", data.Name, dist)
+                    data.Text.Color = color
 
                     if data.Box and data.Box.Visible then
-                        data.Box.Color = npcColor
+                        data.Box.Color = ESP.Colors.Box
                         data.Text.Position = Vector2.new(
                             data.Box.Position.X + data.Box.Size.X / 2,
                             data.Box.Position.Y - data.Text.Size - 2
@@ -642,15 +638,11 @@ RunService.RenderStepped:Connect(function()
                     local screen, on = WorldToScreen(pos)
 
                     if on then
-                        local isVis = ESP.Settings.VisibilityCheck and IsVisible(Camera.CFrame.Position, model)
-                        local playerColor = isVis and ESP.Colors.PlayerVisible or ESP.Colors.Player
-                        local visTag = isVis and " [VISIBLE]" or ""
-
-                        data.Text.Text  = string.format("%s [%.0fm]%s", data.Object.Name, dist, visTag)
-                        data.Text.Color = playerColor
+                        data.Text.Text  = string.format("%s [%.0fm]", data.Object.Name, dist)
+                        data.Text.Color = ESP.Colors.Player
 
                         if data.Box and data.Box.Visible then
-                            data.Box.Color = playerColor
+                            data.Box.Color = ESP.Colors.Box
                             data.Text.Position = Vector2.new(
                                 data.Box.Position.X + data.Box.Size.X / 2,
                                 data.Box.Position.Y - data.Text.Size - 2
@@ -819,6 +811,73 @@ RunService.RenderStepped:Connect(function()
 
     end
 
+end)
+
+------------------------------------------------
+-- CROSSHAIR PLAYER INFO
+-- Shows target name + visibility in screen center when looking at a player/NPC
+------------------------------------------------
+
+local VisibilityIndicator = Drawing.new("Text")
+VisibilityIndicator.Visible = false
+VisibilityIndicator.Center = true
+VisibilityIndicator.Outline = true
+VisibilityIndicator.Font = ESP.Settings.Font
+VisibilityIndicator.Size = 18
+
+ESP.Settings.CrosshairInfo = true
+
+function ESP:SetCrosshairInfo(v)
+    ESP.Settings.CrosshairInfo = v
+    if not v then VisibilityIndicator.Visible = false end
+end
+
+RunService.RenderStepped:Connect(function()
+    if not ESP.Settings.Enabled or not ESP.Settings.CrosshairInfo then
+        VisibilityIndicator.Visible = false
+        return
+    end
+
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    -- Check if ANY player or tracked NPC on screen is visible to us
+    local anyVisible = false
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        local char = player.Character
+        if not char then continue end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+        local _, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+        if not onScreen then continue end
+        if IsVisible(Camera.CFrame.Position, char) then
+            anyVisible = true
+            break
+        end
+    end
+
+    if not anyVisible then
+        for _, data in pairs(ESP.Objects) do
+            if data.Type ~= "NPC" then continue end
+            local model = data.Object
+            if not model or not model.Parent then continue end
+            local root = GetRoot(model)
+            if not root then continue end
+            local _, onScreen = Camera:WorldToViewportPoint(root.Position)
+            if not onScreen then continue end
+            if IsVisible(Camera.CFrame.Position, model) then
+                anyVisible = true
+                break
+            end
+        end
+    end
+
+    -- Always show the indicator, color reflects whether anyone visible is on screen
+    VisibilityIndicator.Text = anyVisible and "VISIBLE" or "NOT VISIBLE"
+    VisibilityIndicator.Color = anyVisible and Color3.fromRGB(0,255,80) or Color3.fromRGB(255,60,60)
+    VisibilityIndicator.Position = Vector2.new(screenCenter.X, screenCenter.Y + 30)
+    VisibilityIndicator.Visible = true
 end)
 
 return ESP
