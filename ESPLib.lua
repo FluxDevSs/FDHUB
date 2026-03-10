@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.29
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.30
     Death safe + cleanup safe
 ]]
 
@@ -42,19 +42,18 @@ ESP.Settings = {
 }
 
 ESP.Colors = {
-    Player   = Color3.fromRGB(255,255,255),
-    NPC      = Color3.fromRGB(255,120,120),
-    Item     = Color3.fromRGB(0,255,150),
-    Weapon   = Color3.fromRGB(255,200,0),
-    Corpse   = Color3.fromRGB(180,0,255),
-    Box      = Color3.fromRGB(255,255,255),
+    Player = Color3.fromRGB(255,255,255),
+    NPC = Color3.fromRGB(255,120,120),
+    Item = Color3.fromRGB(0,255,150),
+    Weapon = Color3.fromRGB(255,200,0),
+    Corpse = Color3.fromRGB(180,0,255),
+    Box = Color3.fromRGB(255,255,255),
     Skeleton = Color3.fromRGB(255,255,255),
-    HP       = Color3.fromRGB(255,0,0)
+    HP = Color3.fromRGB(255,0,0)
 }
 
 ESP.Objects = {}
 ESP.Connections = {}
-ESP._Trackers = {}
 
 ------------------------------------------------
 -- DRAWINGS
@@ -107,11 +106,37 @@ local function GetRoot(model)
         or model:FindFirstChildWhichIsA("BasePart")
 end
 
+local function GetBoundingBox(model)
+
+    local cf,size = model:GetBoundingBox()
+    local corners = {}
+
+    for x=-1,1,2 do
+        for y=-1,1,2 do
+            for z=-1,1,2 do
+
+                table.insert(
+                    corners,
+                    (cf * CFrame.new(
+                        size.X/2 * x,
+                        size.Y/2 * y,
+                        size.Z/2 * z
+                    )).Position
+                )
+
+            end
+        end
+    end
+
+    return corners
+end
+
 ------------------------------------------------
 -- CLEANUP
 ------------------------------------------------
 
 local function cleanup(object)
+
     local data = ESP.Objects[object]
     if not data then return end
 
@@ -158,10 +183,12 @@ end
 ------------------------------------------------
 
 function ESP:AddPlayer(player)
+
     if player == LocalPlayer then return end
     if ESP.Objects[player] then return end
 
     local skeletonLines = {}
+
     for i=1,10 do
         skeletonLines[i] = NewLine()
     end
@@ -181,16 +208,20 @@ function ESP:AddPlayer(player)
             hum.Died:Connect(function()
                 local data = ESP.Objects[player]
                 if not data then return end
+
                 if data.Text then data.Text.Visible = false end
                 if data.Box then data.Box.Visible = false end
                 if data.HPBar then data.HPBar.Visible = false end
+
                 if data.SkeletonLines then
                     for _,l in pairs(data.SkeletonLines) do
                         l.Visible = false
                     end
                 end
+
             end)
         end
+
     end)
 end
 
@@ -199,10 +230,12 @@ end
 ------------------------------------------------
 
 function ESP:AddNPC(model,name)
+
     if not model or not model:IsA("Model") then return end
     if ESP.Objects[model] then return end
 
     local skeletonLines = {}
+
     for i=1,10 do
         skeletonLines[i] = NewLine()
     end
@@ -228,7 +261,8 @@ end
 -- ADD PART
 ------------------------------------------------
 
-function ESP:AddPart(part, name, espColor, espCategory)
+function ESP:AddPart(part,name,espCategory)
+
     if not part or not part:IsA("BasePart") then return end
     if ESP.Objects[part] then return end
 
@@ -236,8 +270,8 @@ function ESP:AddPart(part, name, espColor, espCategory)
         Type = "Part",
         Object = part,
         Name = name or part.Name,
-        EspColor = espColor or ESP.Colors.Item,
         EspCategory = espCategory or "item",
+        EspColor = ESP.Colors[espCategory] or ESP.Colors.Item,
         Text = NewText(),
         Box = NewBox()
     }
@@ -254,141 +288,104 @@ function ESP:Remove(object)
 end
 
 ------------------------------------------------
--- TRACKERS
+-- TRACK FOLDER (items/weapons/corpses)
 ------------------------------------------------
 
-local function getPart(model)
-    return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-end
+function ESP:TrackFolder(key, folder, category, Lookups)
+    -- store key so we can untrack later
+    if not ESP._trackedFolders then ESP._trackedFolders = {} end
 
-local function tryAdd(self, model, espType, lookups)
-    if not model:IsA("Model") then return end
+    -- disconnect old connection for this key if any
+    if ESP._trackedFolders[key] then
+        ESP._trackedFolders[key]:Disconnect()
+        ESP._trackedFolders[key] = nil
+    end
 
-    local ItemLookup = lookups and lookups.ItemLookup or {}
-    local GunLookup  = lookups and lookups.GunLookup  or {}
+    local function tryAdd(obj)
+        if not obj:IsA("BasePart") then return end
+        local parent = obj.Parent
+        if not parent then return end
 
-    if espType == "item" then
-        if GunLookup[model.Name] then return end
-        if not ItemLookup[model.Name] then return end
-        local part = getPart(model)
-        if part then
-            self:AddPart(part, model.Name, ESP.Colors.Item, "item")
-        end
-
-    elseif espType == "weapon" then
-        if not GunLookup[model.Name] then return end
-        local part = getPart(model)
-        if part then
-            self:AddPart(part, model.Name, ESP.Colors.Weapon, "weapon")
-        end
-
-    elseif espType == "corpse" then
-        if not Players:FindFirstChild(model.Name) then return end
-        local part = getPart(model)
-        if part then
-            self:AddPart(part, model.Name .. " Corpse", ESP.Colors.Corpse, "corpse")
-        end
-
-    elseif espType == "npc" then
-        local hum  = model:FindFirstChildOfClass("Humanoid")
-        local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
-        if hum and root then
-            self:AddNPC(model, model.Name)
+        if category == "item" then
+            if Lookups.ItemLookup[parent.Name] then
+                ESP:AddPart(obj, parent.Name, "item")
+            end
+        elseif category == "weapon" then
+            if Lookups.GunLookup[parent.Name] then
+                ESP:AddPart(obj, parent.Name, "weapon")
+            end
+        elseif category == "corpse" then
+            if not Lookups.ItemLookup[parent.Name] and not Lookups.GunLookup[parent.Name] then
+                ESP:AddPart(obj, parent.Name, "corpse")
+            end
         end
     end
-end
 
-local function tryRemove(self, model, espType, lookups)
-    if not model:IsA("Model") then return end
-
-    local ItemLookup = lookups and lookups.ItemLookup or {}
-    local GunLookup  = lookups and lookups.GunLookup  or {}
-
-    if espType == "item" then
-        if not ItemLookup[model.Name] then return end
-        local part = getPart(model)
-        if part then self:Remove(part) end
-
-    elseif espType == "weapon" then
-        if not GunLookup[model.Name] then return end
-        local part = getPart(model)
-        if part then self:Remove(part) end
-
-    elseif espType == "corpse" then
-        if not Players:FindFirstChild(model.Name) then return end
-        local part = getPart(model)
-        if part then self:Remove(part) end
-
-    elseif espType == "npc" then
-        self:Remove(model)
-    end
-end
-
-function ESP:TrackFolder(id, folder, espType, lookups)
-    self:Untrack(id)
-
-    for _, child in ipairs(folder:GetChildren()) do
-        tryAdd(self, child, espType, lookups)
+    -- add existing
+    for _, obj in ipairs(folder:GetDescendants()) do
+        tryAdd(obj)
     end
 
-    local addConn = folder.ChildAdded:Connect(function(child)
-        tryAdd(self, child, espType, lookups)
+    -- watch for new ones
+    ESP._trackedFolders[key] = folder.DescendantAdded:Connect(function(obj)
+        tryAdd(obj)
     end)
-
-    local removeConn = folder.ChildRemoved:Connect(function(child)
-        tryRemove(self, child, espType, lookups)
-    end)
-
-    self._Trackers[id] = {
-        folder     = folder,
-        espType    = espType,
-        lookups    = lookups,
-        addConn    = addConn,
-        removeConn = removeConn,
-        mode       = "children"
-    }
 end
 
-function ESP:TrackDescendants(id, folder)
-    self:Untrack(id)
+------------------------------------------------
+-- TRACK DESCENDANTS (NPCs)
+------------------------------------------------
 
-    for _, desc in ipairs(folder:GetDescendants()) do
-        tryAdd(self, desc, "npc", nil)
+function ESP:TrackDescendants(key, container)
+    if not ESP._trackedDescendants then ESP._trackedDescendants = {} end
+
+    if ESP._trackedDescendants[key] then
+        ESP._trackedDescendants[key]:Disconnect()
+        ESP._trackedDescendants[key] = nil
     end
 
-    local addConn = folder.DescendantAdded:Connect(function(desc)
-        tryAdd(self, desc, "npc", nil)
-    end)
+    for _, obj in ipairs(container:GetDescendants()) do
+        if obj:IsA("Model") then
+            ESP:AddNPC(obj, obj.Name)
+        end
+    end
 
-    local removeConn = folder.DescendantRemoving:Connect(function(desc)
-        tryRemove(self, desc, "npc", nil)
+    ESP._trackedDescendants[key] = container.DescendantAdded:Connect(function(obj)
+        if obj:IsA("Model") then
+            ESP:AddNPC(obj, obj.Name)
+        end
     end)
-
-    self._Trackers[id] = {
-        folder     = folder,
-        espType    = "npc",
-        addConn    = addConn,
-        removeConn = removeConn,
-        mode       = "descendants"
-    }
 end
 
-function ESP:Untrack(id)
-    local tracker = self._Trackers[id]
-    if not tracker then return end
+------------------------------------------------
+-- UNTRACK
+------------------------------------------------
 
-    if tracker.addConn    then tracker.addConn:Disconnect() end
-    if tracker.removeConn then tracker.removeConn:Disconnect() end
-
-    local list = tracker.mode == "descendants"
-        and tracker.folder:GetDescendants()
-        or  tracker.folder:GetChildren()
-
-    for _, obj in ipairs(list) do
-        tryRemove(self, obj, tracker.espType, tracker.lookups)
+function ESP:Untrack(key)
+    -- disconnect folder tracker
+    if ESP._trackedFolders and ESP._trackedFolders[key] then
+        ESP._trackedFolders[key]:Disconnect()
+        ESP._trackedFolders[key] = nil
     end
 
-    self._Trackers[id] = nil
+    -- disconnect descendants tracker
+    if ESP._trackedDescendants and ESP._trackedDescendants[key] then
+        ESP._trackedDescendants[key]:Disconnect()
+        ESP._trackedDescendants[key] = nil
+    end
+
+    -- remove all tracked objects belonging to this category key
+    local toRemove = {}
+    for obj, data in pairs(ESP.Objects) do
+        if data.EspCategory == key
+        or (key == "npcs" and data.Type == "NPC") then
+            table.insert(toRemove, obj)
+        end
+    end
+
+    for _, obj in ipairs(toRemove) do
+        cleanup(obj)
+    end
 end
 
 ------------------------------------------------
@@ -437,14 +434,17 @@ RunService.RenderStepped:Connect(function()
             model = data.Object.Character
 
             if not model or not model.Parent then
+
                 if data.Text then data.Text.Visible = false end
                 if data.Box then data.Box.Visible = false end
                 if data.HPBar then data.HPBar.Visible = false end
+
                 if data.SkeletonLines then
                     for _,l in pairs(data.SkeletonLines) do
                         l.Visible = false
                     end
                 end
+
                 continue
             end
 
@@ -479,59 +479,47 @@ RunService.RenderStepped:Connect(function()
 
 ------------------------------------------------
 -- TEXT
+-- Players/NPCs: gated by NameEnabled toggle
+-- Parts (items/weapons/corpses/npcs): always shown independently
 ------------------------------------------------
 
         if data.Text then
 
-            if ESP.Settings.NameEnabled then
+            -- Parts (item/weapon/corpse) always show their label independently
+            if data.Type == "Part" then
 
-                local color
-                local name
-                local head
-
-                if data.Type == "Player" then
-                    color = ESP.Colors.Player
-                    name = data.Object.Name
-                    head = model:FindFirstChild("Head")
-
-                elseif data.Type == "NPC" then
-                    color = ESP.Colors.NPC
-                    name = data.Name
-                    head = model:FindFirstChild("Head")
-
-                else
-                    -- Read EspColor live every frame so color picker changes apply instantly
-                    color = data.EspColor or ESP.Colors.Item
-                    name = data.Name
-                end
-
+                local color = data.EspColor or ESP.Colors.Item
                 local pos = root.Position
-
-                if head then
-                    pos = head.Position + Vector3.new(0,0.6,0)
-                end
-
-                local screen,on = WorldToScreen(pos)
+                local screen, on = WorldToScreen(pos)
 
                 if on then
-                    data.Text.Text = string.format("%s [%.0fm]", name, dist)
+                    data.Text.Text    = string.format("%s [%.0fm]", data.Name, dist)
+                    data.Text.Color   = color
+                    data.Text.Position = Vector2.new(screen.X, screen.Y - data.Text.Size - 2)
+                    data.Text.Visible = true
+                else
+                    data.Text.Visible = false
+                end
+
+            -- NPC labels are also independent of NameEnabled
+            elseif data.Type == "NPC" then
+
+                local color = data.EspColor or ESP.Colors.NPC
+                local head  = model and model:FindFirstChild("Head")
+                local pos   = head and (head.Position + Vector3.new(0,0.6,0)) or root.Position
+                local screen, on = WorldToScreen(pos)
+
+                if on then
+                    data.Text.Text = string.format("%s [%.0fm]", data.Name, dist)
                     data.Text.Color = color
 
-                    if data.Box.Visible then
+                    if data.Box and data.Box.Visible then
                         data.Text.Position = Vector2.new(
                             data.Box.Position.X + data.Box.Size.X / 2,
                             data.Box.Position.Y - data.Text.Size - 2
                         )
                     else
-                        local headScreen, headOn = WorldToScreen(pos)
-                        if headOn then
-                            data.Text.Position = Vector2.new(
-                                headScreen.X,
-                                headScreen.Y - data.Text.Size - 2
-                            )
-                        else
-                            data.Text.Visible = false
-                        end
+                        data.Text.Position = Vector2.new(screen.X, screen.Y - data.Text.Size - 2)
                     end
 
                     data.Text.Visible = true
@@ -539,13 +527,42 @@ RunService.RenderStepped:Connect(function()
                     data.Text.Visible = false
                 end
 
-            else
-                data.Text.Visible = false
+            -- Players: gated by NameEnabled
+            elseif data.Type == "Player" then
+
+                if ESP.Settings.NameEnabled then
+
+                    local head = model:FindFirstChild("Head")
+                    local pos  = head and (head.Position + Vector3.new(0,0.6,0)) or root.Position
+                    local screen, on = WorldToScreen(pos)
+
+                    if on then
+                        data.Text.Text  = string.format("%s [%.0fm]", data.Object.Name, dist)
+                        data.Text.Color = ESP.Colors.Player
+
+                        if data.Box and data.Box.Visible then
+                            data.Text.Position = Vector2.new(
+                                data.Box.Position.X + data.Box.Size.X / 2,
+                                data.Box.Position.Y - data.Text.Size - 2
+                            )
+                        else
+                            data.Text.Position = Vector2.new(screen.X, screen.Y - data.Text.Size - 2)
+                        end
+
+                        data.Text.Visible = true
+                    else
+                        data.Text.Visible = false
+                    end
+
+                else
+                    data.Text.Visible = false
+                end
+
             end
         end
 
 ------------------------------------------------
--- BOX
+-- BOX (Head-to-foot screen projection)
 ------------------------------------------------
 
         if data.Box then
@@ -613,16 +630,19 @@ RunService.RenderStepped:Connect(function()
 
                 local percent = math.clamp(humanoid.Health / humanoid.MaxHealth,0,1)
 
-                local boxPos  = data.Box.Position
+                local boxPos = data.Box.Position
                 local boxSize = data.Box.Size
-                local height  = boxSize.Y * percent
 
-                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth, height)
+                local height = boxSize.Y * percent
+
+                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth,height)
+
                 data.HPBar.Position = Vector2.new(
                     boxPos.X - ESP.Settings.HPWidth - 2,
                     boxPos.Y + (boxSize.Y - height)
                 )
-                data.HPBar.Color   = ESP.Colors.HP
+
+                data.HPBar.Color = ESP.Colors.HP
                 data.HPBar.Visible = true
 
             else
@@ -642,13 +662,13 @@ RunService.RenderStepped:Connect(function()
             end
 
             local parts = {
-                Head  = model:FindFirstChild("Head"),
+                Head = model:FindFirstChild("Head"),
                 Torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso"),
-                Root  = model:FindFirstChild("HumanoidRootPart"),
-                LA    = model:FindFirstChild("LeftUpperArm")  or model:FindFirstChild("Left Arm"),
-                RA    = model:FindFirstChild("RightUpperArm") or model:FindFirstChild("Right Arm"),
-                LL    = model:FindFirstChild("LeftUpperLeg")  or model:FindFirstChild("Left Leg"),
-                RL    = model:FindFirstChild("RightUpperLeg") or model:FindFirstChild("Right Leg")
+                Root = model:FindFirstChild("HumanoidRootPart"),
+                LA = model:FindFirstChild("LeftUpperArm") or model:FindFirstChild("Left Arm"),
+                RA = model:FindFirstChild("RightUpperArm") or model:FindFirstChild("Right Arm"),
+                LL = model:FindFirstChild("LeftUpperLeg") or model:FindFirstChild("Left Leg"),
+                RL = model:FindFirstChild("RightUpperLeg") or model:FindFirstChild("Right Leg")
             }
 
             local pairsList = {
@@ -663,20 +683,23 @@ RunService.RenderStepped:Connect(function()
             local index = 1
 
             for _,pair in ipairs(pairsList) do
-                local p1   = parts[pair[1]]
-                local p2   = parts[pair[2]]
+
+                local p1 = parts[pair[1]]
+                local p2 = parts[pair[2]]
                 local line = data.SkeletonLines[index]
 
                 if p1 and p2 and line then
+
                     local s1,on1 = Camera:WorldToViewportPoint(p1.Position)
                     local s2,on2 = Camera:WorldToViewportPoint(p2.Position)
 
                     if on1 and on2 and s1.Z > 0 and s2.Z > 0 then
-                        line.From  = Vector2.new(s1.X,s1.Y)
-                        line.To    = Vector2.new(s2.X,s2.Y)
+                        line.From = Vector2.new(s1.X,s1.Y)
+                        line.To = Vector2.new(s2.X,s2.Y)
                         line.Color = ESP.Colors.Skeleton
                         line.Visible = true
                     end
+
                 end
 
                 index += 1
