@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.23
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.24
     Death safe + cleanup safe
 ]]
 
@@ -433,14 +433,19 @@ RunService.RenderStepped:Connect(function()
 
             if useBox and model then
 
-                local hrp = model:FindFirstChild("HumanoidRootPart")
+                local hrp  = model:FindFirstChild("HumanoidRootPart")
                 local head = model:FindFirstChild("Head")
+                local foot = model:FindFirstChild("LeftFoot")
+                          or model:FindFirstChild("RightFoot")
+                          or model:FindFirstChild("Left Leg")
+                          or model:FindFirstChild("Right Leg")
 
                 if hrp and head then
 
-                    -- Top = above head, Bottom = below feet
-                    local topPos    = head.Position + Vector3.new(0, head.Size.Y, 0)
-                    local bottomPos = hrp.Position  - Vector3.new(0, 3, 0)
+                    local topPos    = head.Position + Vector3.new(0, head.Size.Y + 0.2, 0)
+                    local bottomPos = foot
+                        and (foot.Position - Vector3.new(0, foot.Size.Y / 2, 0))
+                        or  (hrp.Position  - Vector3.new(0, 3.2, 0))
 
                     local topScreen,    onTop    = WorldToScreen(topPos)
                     local bottomScreen, onBottom = WorldToScreen(bottomPos)
@@ -448,13 +453,14 @@ RunService.RenderStepped:Connect(function()
                     if onTop and onBottom then
 
                         local boxH = math.abs(bottomScreen.Y - topScreen.Y)
-                        local boxW = boxH * 0.5  -- width is half height (character aspect ratio)
+                        local boxW = boxH * 0.5
+                        local pad  = boxH * 0.05
 
-                        local boxX = screenPos.X - boxW / 2
-                        local boxY = topScreen.Y
+                        local boxX = screenPos.X - boxW / 2 - pad
+                        local boxY = topScreen.Y - pad
 
                         data.Box.Position = Vector2.new(boxX, boxY)
-                        data.Box.Size     = Vector2.new(boxW, boxH)
+                        data.Box.Size     = Vector2.new(boxW + pad * 2, boxH + pad * 2)
                         data.Box.Color    = ESP.Colors.Box
                         data.Box.Visible  = true
 
@@ -566,6 +572,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 return ESP
+
 
 
 
