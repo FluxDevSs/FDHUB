@@ -3659,7 +3659,7 @@ function library:CreateWindow(name, size, hidebutton)
     return window
 end
 
-function library:CreateInfoBox(position)
+function library:CreateInfoBox(position, width)
     local infobox = { }
     infobox.lines = { }
     infobox.Visible = true
@@ -3685,7 +3685,7 @@ function library:CreateInfoBox(position)
     infobox.frame.BackgroundTransparency = 0.3
     infobox.frame.BorderSizePixel = 0
     infobox.frame.Position = UDim2.fromOffset(position and position.X or 10, position and position.Y or 10)
-    infobox.frame.Size = UDim2.fromOffset(200, 20) -- will auto-resize
+	infobox.frame.Size = UDim2.fromOffset(width or 280, 20)
     infobox.frame.AutomaticSize = Enum.AutomaticSize.Y
 
     -- Outline layers (matches lib style)
