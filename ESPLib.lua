@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.27
     Death safe + cleanup safe
 ]]
 
@@ -52,6 +52,10 @@ ESP.Colors = {
 
 ESP.Objects = {}
 ESP.Connections = {}
+
+-- Tracker state: keyed by a tracker ID string you choose
+-- Each entry: { addConn, removeConn, type, ... config }
+ESP._Trackers = {}
 
 ------------------------------------------------
 -- DRAWINGS
@@ -284,6 +288,198 @@ function ESP:Remove(object)
 end
 
 ------------------------------------------------
+-- TRACKERS
+-- ESP:TrackFolder(id, folder, espType, lookups)
+--
+-- espType: "item" | "weapon" | "corpse"
+-- lookups: { ItemLookup, GunLookup }  (tables)
+--
+-- ESP:TrackDescendants(id, folder, espType)
+-- espType: "npc"
+--
+-- ESP:Untrack(id) -- disables & cleans up a tracker
+------------------------------------------------
+
+local function getPart(model)
+    return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+end
+
+-- Internal: decide whether to add/remove based on espType
+local function tryAdd(self, model, espType, lookups)
+
+    if not model:IsA("Model") then return end
+
+    local ItemLookup = lookups and lookups.ItemLookup or {}
+    local GunLookup  = lookups and lookups.GunLookup  or {}
+
+    if espType == "item" then
+
+        if GunLookup[model.Name] then return end
+        if not ItemLookup[model.Name] then return end
+
+        local part = getPart(model)
+        if part then self:AddPart(part, model.Name) end
+
+    elseif espType == "weapon" then
+
+        if not GunLookup[model.Name] then return end
+
+        local part = getPart(model)
+        if part then self:AddPart(part, model.Name) end
+
+    elseif espType == "corpse" then
+
+        if not Players:FindFirstChild(model.Name) then return end
+
+        local part = getPart(model)
+        if part then self:AddPart(part, model.Name .. " Corpse") end
+
+    elseif espType == "npc" then
+
+        local hum  = model:FindFirstChildOfClass("Humanoid")
+        local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+
+        if hum and root then
+            self:AddNPC(model, model.Name)
+        end
+
+    end
+
+end
+
+local function tryRemove(self, model, espType, lookups)
+
+    if not model:IsA("Model") then return end
+
+    local ItemLookup = lookups and lookups.ItemLookup or {}
+    local GunLookup  = lookups and lookups.GunLookup  or {}
+
+    if espType == "item" then
+
+        if not ItemLookup[model.Name] then return end
+        local part = getPart(model)
+        if part then self:Remove(part) end
+
+    elseif espType == "weapon" then
+
+        if not GunLookup[model.Name] then return end
+        local part = getPart(model)
+        if part then self:Remove(part) end
+
+    elseif espType == "corpse" then
+
+        if not Players:FindFirstChild(model.Name) then return end
+        local part = getPart(model)
+        if part then self:Remove(part) end
+
+    elseif espType == "npc" then
+
+        self:Remove(model)
+
+    end
+
+end
+
+--[[
+    TrackFolder
+    Watches ChildAdded / ChildRemoved on a flat folder.
+    Use for: "item", "weapon", "corpse"
+
+    id      - unique string key for this tracker (e.g. "items")
+    folder  - the Instance to watch (e.g. DroppedItems)
+    espType - "item" | "weapon" | "corpse"
+    lookups - { ItemLookup = {}, GunLookup = {} }
+]]
+function ESP:TrackFolder(id, folder, espType, lookups)
+
+    -- Tear down any existing tracker with this id first
+    self:Untrack(id)
+
+    -- Populate existing children
+    for _, child in ipairs(folder:GetChildren()) do
+        tryAdd(self, child, espType, lookups)
+    end
+
+    local addConn = folder.ChildAdded:Connect(function(child)
+        tryAdd(self, child, espType, lookups)
+    end)
+
+    local removeConn = folder.ChildRemoved:Connect(function(child)
+        tryRemove(self, child, espType, lookups)
+    end)
+
+    self._Trackers[id] = {
+        folder    = folder,
+        espType   = espType,
+        lookups   = lookups,
+        addConn   = addConn,
+        removeConn= removeConn,
+        mode      = "children"
+    }
+end
+
+--[[
+    TrackDescendants
+    Watches DescendantAdded / DescendantRemoving on a folder.
+    Use for: "npc" (AiZones has nested descendants)
+
+    id      - unique string key (e.g. "npcs")
+    folder  - the Instance to watch (e.g. AiZones)
+]]
+function ESP:TrackDescendants(id, folder)
+
+    self:Untrack(id)
+
+    for _, desc in ipairs(folder:GetDescendants()) do
+        tryAdd(self, desc, "npc", nil)
+    end
+
+    local addConn = folder.DescendantAdded:Connect(function(desc)
+        tryAdd(self, desc, "npc", nil)
+    end)
+
+    local removeConn = folder.DescendantRemoving:Connect(function(desc)
+        tryRemove(self, desc, "npc", nil)
+    end)
+
+    self._Trackers[id] = {
+        folder    = folder,
+        espType   = "npc",
+        addConn   = addConn,
+        removeConn= removeConn,
+        mode      = "descendants"
+    }
+end
+
+--[[
+    Untrack
+    Disconnects the tracker's connections and removes all ESP
+    objects that were added by iterating the folder again.
+
+    id - the same string used in TrackFolder / TrackDescendants
+]]
+function ESP:Untrack(id)
+
+    local tracker = self._Trackers[id]
+    if not tracker then return end
+
+    -- Disconnect listeners
+    if tracker.addConn    then tracker.addConn:Disconnect() end
+    if tracker.removeConn then tracker.removeConn:Disconnect() end
+
+    -- Remove all tracked ESP objects
+    local list = tracker.mode == "descendants"
+        and tracker.folder:GetDescendants()
+        or  tracker.folder:GetChildren()
+
+    for _, obj in ipairs(list) do
+        tryRemove(self, obj, tracker.espType, tracker.lookups)
+    end
+
+    self._Trackers[id] = nil
+end
+
+------------------------------------------------
 -- PLAYER AUTO REGISTER
 ------------------------------------------------
 
@@ -412,13 +608,11 @@ RunService.RenderStepped:Connect(function()
                     data.Text.Color = color
 
                     if data.Box.Visible then
-                        -- anchor to top of box
                         data.Text.Position = Vector2.new(
                             data.Box.Position.X + data.Box.Size.X / 2,
                             data.Box.Position.Y - data.Text.Size - 2
                         )
                     else
-                        -- fallback: float above head when box not visible
                         local headScreen, headOn = WorldToScreen(pos)
                         if headOn then
                             data.Text.Position = Vector2.new(
@@ -591,10 +785,3 @@ RunService.RenderStepped:Connect(function()
 end)
 
 return ESP
-
-
-
-
-
-
-
