@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.28
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.29
     Death safe + cleanup safe
 ]]
 
@@ -105,26 +105,6 @@ local function GetRoot(model)
     return model:FindFirstChild("HumanoidRootPart")
         or model.PrimaryPart
         or model:FindFirstChildWhichIsA("BasePart")
-end
-
-local function GetBoundingBox(model)
-    local cf,size = model:GetBoundingBox()
-    local corners = {}
-    for x=-1,1,2 do
-        for y=-1,1,2 do
-            for z=-1,1,2 do
-                table.insert(
-                    corners,
-                    (cf * CFrame.new(
-                        size.X/2 * x,
-                        size.Y/2 * y,
-                        size.Z/2 * z
-                    )).Position
-                )
-            end
-        end
-    end
-    return corners
 end
 
 ------------------------------------------------
@@ -248,7 +228,7 @@ end
 -- ADD PART
 ------------------------------------------------
 
-function ESP:AddPart(part, name, espColor)
+function ESP:AddPart(part, name, espColor, espCategory)
     if not part or not part:IsA("BasePart") then return end
     if ESP.Objects[part] then return end
 
@@ -257,6 +237,7 @@ function ESP:AddPart(part, name, espColor)
         Object = part,
         Name = name or part.Name,
         EspColor = espColor or ESP.Colors.Item,
+        EspCategory = espCategory or "item",
         Text = NewText(),
         Box = NewBox()
     }
@@ -290,17 +271,23 @@ local function tryAdd(self, model, espType, lookups)
         if GunLookup[model.Name] then return end
         if not ItemLookup[model.Name] then return end
         local part = getPart(model)
-        if part then self:AddPart(part, model.Name, ESP.Colors.Item) end
+        if part then
+            self:AddPart(part, model.Name, ESP.Colors.Item, "item")
+        end
 
     elseif espType == "weapon" then
         if not GunLookup[model.Name] then return end
         local part = getPart(model)
-        if part then self:AddPart(part, model.Name, ESP.Colors.Weapon) end
+        if part then
+            self:AddPart(part, model.Name, ESP.Colors.Weapon, "weapon")
+        end
 
     elseif espType == "corpse" then
         if not Players:FindFirstChild(model.Name) then return end
         local part = getPart(model)
-        if part then self:AddPart(part, model.Name .. " Corpse", ESP.Colors.Corpse) end
+        if part then
+            self:AddPart(part, model.Name .. " Corpse", ESP.Colors.Corpse, "corpse")
+        end
 
     elseif espType == "npc" then
         local hum  = model:FindFirstChildOfClass("Humanoid")
@@ -513,7 +500,7 @@ RunService.RenderStepped:Connect(function()
                     head = model:FindFirstChild("Head")
 
                 else
-                    -- Part type: use per-object EspColor, live-updated from color picker
+                    -- Read EspColor live every frame so color picker changes apply instantly
                     color = data.EspColor or ESP.Colors.Item
                     name = data.Name
                 end
