@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.2034
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.888
     Death safe + cleanup safe
 ]]
 
@@ -753,8 +753,14 @@ RunService.RenderStepped:Connect(function()
 
                     -- Holding label — toggled independently
                     if ESP.Settings.HoldingEnabled then
+                        -- Check both the player instance and their character
                         local holdingVal = data.Object:FindFirstChild("Holding")
+                            or (model and model:FindFirstChild("Holding"))
                         local holdingStr = holdingVal and tostring(holdingVal.Value) or ""
+                        -- debug: if still empty, print all children names to find it
+                        if holdingStr == "" then
+                            holdingStr = "[no Holding]"
+                        end
                         if holdingStr ~= "" then
                             local holdY = ESP.Settings.NameEnabled
                                 and (anchorY + data.Text.Size + 2)
