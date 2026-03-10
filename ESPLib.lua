@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.30
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.31
     Death safe + cleanup safe
 ]]
 
@@ -292,43 +292,65 @@ end
 ------------------------------------------------
 
 function ESP:TrackFolder(key, folder, category, Lookups)
-    -- store key so we can untrack later
     if not ESP._trackedFolders then ESP._trackedFolders = {} end
 
-    -- disconnect old connection for this key if any
     if ESP._trackedFolders[key] then
         ESP._trackedFolders[key]:Disconnect()
         ESP._trackedFolders[key] = nil
     end
 
-    local function tryAdd(obj)
-        if not obj:IsA("BasePart") then return end
-        local parent = obj.Parent
-        if not parent then return end
-
+    -- Returns true if this model matches the category
+    local function modelMatches(model)
+        if not model:IsA("Model") then return false end
+        local name = model.Name
         if category == "item" then
-            if Lookups.ItemLookup[parent.Name] then
-                ESP:AddPart(obj, parent.Name, "item")
-            end
+            return Lookups.ItemLookup[name] == true
         elseif category == "weapon" then
-            if Lookups.GunLookup[parent.Name] then
-                ESP:AddPart(obj, parent.Name, "weapon")
-            end
+            return Lookups.GunLookup[name] == true
         elseif category == "corpse" then
-            if not Lookups.ItemLookup[parent.Name] and not Lookups.GunLookup[parent.Name] then
-                ESP:AddPart(obj, parent.Name, "corpse")
-            end
+            return not Lookups.ItemLookup[name] and not Lookups.GunLookup[name]
         end
+        return false
     end
 
-    -- add existing
-    for _, obj in ipairs(folder:GetDescendants()) do
-        tryAdd(obj)
+    -- Get the single best anchor part for a model
+    local function getAnchorPart(model)
+        if model.PrimaryPart then return model.PrimaryPart end
+        return model:FindFirstChildWhichIsA("BasePart")
     end
 
-    -- watch for new ones
-    ESP._trackedFolders[key] = folder.DescendantAdded:Connect(function(obj)
-        tryAdd(obj)
+    local function tryAddModel(model)
+        if not modelMatches(model) then return end
+        local part = getAnchorPart(model)
+        if not part then return end
+        -- Use the model as the key to avoid duplicate tracking
+        if ESP.Objects[model] then return end
+
+        ESP.Objects[model] = {
+            Type = "Part",
+            Object = part,       -- render position from this part
+            Name = model.Name,
+            EspCategory = category,
+            EspColor = ESP.Colors[category] or ESP.Colors.Item,
+            Text = NewText(),
+            Box = NewBox()
+        }
+
+        ESP.Connections[model] = model.AncestryChanged:Connect(function()
+            if not model:IsDescendantOf(workspace) then
+                cleanup(model)
+            end
+        end)
+    end
+
+    -- Add existing models in the folder
+    for _, obj in ipairs(folder:GetChildren()) do
+        tryAddModel(obj)
+    end
+
+    -- Watch for newly dropped items
+    ESP._trackedFolders[key] = folder.ChildAdded:Connect(function(obj)
+        tryAddModel(obj)
     end)
 end
 
@@ -374,10 +396,13 @@ function ESP:Untrack(key)
         ESP._trackedDescendants[key] = nil
     end
 
-    -- remove all tracked objects belonging to this category key
+    -- Map folder keys to their EspCategory values
+    local categoryMap = { items = "item", weapons = "weapon", corpses = "corpse" }
+    local targetCategory = categoryMap[key] or key
+
     local toRemove = {}
     for obj, data in pairs(ESP.Objects) do
-        if data.EspCategory == key
+        if data.EspCategory == targetCategory
         or (key == "npcs" and data.Type == "NPC") then
             table.insert(toRemove, obj)
         end
