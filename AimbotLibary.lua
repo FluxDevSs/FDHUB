@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.3
+local Aimbot = {} -- v1.4
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -292,4 +292,9 @@ function Aimbot:SetBulletAimbot(state)
     self.Settings.BulletAimbot = state
 end
 
+function Aimbot:GetTarget()
+    return GetClosestPlayerInFOV()
+end
+
 return Aimbot
+
