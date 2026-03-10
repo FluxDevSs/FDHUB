@@ -1,7 +1,7 @@
 --[[ 
     Custom ESP Library
     Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
-    Death safe + cleanup safe
+    Death safe + cleanup safe + Velocity compatible
 ]]
 
 local ESP = {}
@@ -39,7 +39,6 @@ ESP.Settings = {
     BoxPadding = 3,
     BoxSmoothing = 0.18,
 
-    -- Per-category max distances
     MaxDistance = {
         Player    = 1000,
         NPC       = 500,
@@ -56,9 +55,9 @@ ESP.Settings = {
 ESP.Colors = {
     Container = Color3.fromRGB(255,165,0),
     Player = Color3.fromRGB(255,255,255),
-    PlayerVisible = Color3.fromRGB(0,255,80),   -- color when player can see you
+    PlayerVisible = Color3.fromRGB(0,255,80),
     NPC = Color3.fromRGB(255,120,120),
-    NPCVisible = Color3.fromRGB(0,255,80),       -- color when NPC can see you
+    NPCVisible = Color3.fromRGB(0,255,80),
     Item = Color3.fromRGB(0,255,150),
     Weapon = Color3.fromRGB(255,200,0),
     Corpse = Color3.fromRGB(180,0,255),
@@ -70,11 +69,18 @@ ESP.Colors = {
 ESP.Objects = {}
 ESP.Connections = {}
 
+-- Check Drawing API is available
+local DrawingAvailable = (Drawing ~= nil)
+if not DrawingAvailable then
+    warn("[NOX ESP] Drawing API not available on this executor — ESP disabled")
+end
+
 ------------------------------------------------
 -- DRAWINGS
 ------------------------------------------------
 
 local function NewText()
+    if not DrawingAvailable then return { Visible = false, Remove = function() end } end
     local t = Drawing.new("Text")
     t.Visible = false
     t.Center = true
@@ -84,8 +90,10 @@ local function NewText()
     return t
 end
 
--- Corner bracket box: 8 lines (2 per corner)
 local function NewCornerBox()
+    if not DrawingAvailable then
+        return {}
+    end
     local lines = {}
     for i = 1, 8 do
         local l = Drawing.new("Line")
@@ -97,19 +105,20 @@ local function NewCornerBox()
     return lines
 end
 
--- Helper to set all corner lines visible/invisible
 local function SetCornerBoxVisible(lines, v)
-    for _, l in ipairs(lines) do l.Visible = v end
+    for _, l in ipairs(lines) do
+        if l and l.Visible ~= nil then l.Visible = v end
+    end
 end
 
--- Helper to remove all corner lines
 local function RemoveCornerBox(lines)
-    for _, l in ipairs(lines) do l:Remove() end
+    for _, l in ipairs(lines) do
+        if l and type(l.Remove) == "function" then l:Remove() end
+    end
 end
 
--- Draw corner brackets given box X,Y,W,H and color
--- Corner length = 20% of the shorter side
 local function DrawCornerBox(lines, x, y, w, h, color)
+    if not DrawingAvailable or #lines == 0 then return end
     local cx = math.floor(math.min(w, h) * 0.22)
     local x2, y2 = x + w, y + h
     local t = ESP.Settings.BoxThickness
@@ -119,16 +128,12 @@ local function DrawCornerBox(lines, x, y, w, h, color)
         l.Thickness = t
     end
 
-    -- Top-left
     lines[1].From = Vector2.new(x, y);         lines[1].To = Vector2.new(x + cx, y)
     lines[2].From = Vector2.new(x, y);         lines[2].To = Vector2.new(x, y + cx)
-    -- Top-right
     lines[3].From = Vector2.new(x2, y);        lines[3].To = Vector2.new(x2 - cx, y)
     lines[4].From = Vector2.new(x2, y);        lines[4].To = Vector2.new(x2, y + cx)
-    -- Bottom-left
     lines[5].From = Vector2.new(x, y2);        lines[5].To = Vector2.new(x + cx, y2)
     lines[6].From = Vector2.new(x, y2);        lines[6].To = Vector2.new(x, y2 - cx)
-    -- Bottom-right
     lines[7].From = Vector2.new(x2, y2);       lines[7].To = Vector2.new(x2 - cx, y2)
     lines[8].From = Vector2.new(x2, y2);       lines[8].To = Vector2.new(x2, y2 - cx)
 
@@ -136,6 +141,7 @@ local function DrawCornerBox(lines, x, y, w, h, color)
 end
 
 local function NewLine()
+    if not DrawingAvailable then return { Visible = false, Remove = function() end } end
     local l = Drawing.new("Line")
     l.Visible = false
     l.Thickness = ESP.Settings.SkeletonThickness
@@ -143,6 +149,7 @@ local function NewLine()
 end
 
 local function NewHPBar()
+    if not DrawingAvailable then return { Visible = false, Remove = function() end } end
     local b = Drawing.new("Square")
     b.Visible = false
     b.Filled = true
@@ -154,8 +161,8 @@ end
 ------------------------------------------------
 
 local function WorldToScreen(pos)
-    local v,onScreen = Camera:WorldToViewportPoint(pos)
-    return Vector2.new(v.X,v.Y),onScreen,v.Z
+    local v, onScreen = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(v.X, v.Y), onScreen, v.Z
 end
 
 local function GetRoot(model)
@@ -168,7 +175,6 @@ local function IsVisible(fromPos, targetModel)
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
-    -- Exclude the target model and local character so we don't hit ourselves or them
     local filter = {targetModel}
     if LocalPlayer.Character then
         table.insert(filter, LocalPlayer.Character)
@@ -182,33 +188,7 @@ local function IsVisible(fromPos, targetModel)
     local direction = targetPos - fromPos
     local result = workspace:Raycast(fromPos, direction, raycastParams)
 
-    -- If nothing was hit, or what was hit is inside the target model, it's visible
     return result == nil or result.Instance:IsDescendantOf(targetModel)
-end
-
-local function GetBoundingBox(model)
-
-    local cf,size = model:GetBoundingBox()
-    local corners = {}
-
-    for x=-1,1,2 do
-        for y=-1,1,2 do
-            for z=-1,1,2 do
-
-                table.insert(
-                    corners,
-                    (cf * CFrame.new(
-                        size.X/2 * x,
-                        size.Y/2 * y,
-                        size.Z/2 * z
-                    )).Position
-                )
-
-            end
-        end
-    end
-
-    return corners
 end
 
 ------------------------------------------------
@@ -216,24 +196,23 @@ end
 ------------------------------------------------
 
 local function cleanup(object)
-
     local data = ESP.Objects[object]
     if not data then return end
 
-    if data.Text then data.Text:Remove() end
-    if data.HoldingText then data.HoldingText:Remove() end
+    if data.Text and type(data.Text.Remove) == "function" then data.Text:Remove() end
+    if data.HoldingText and type(data.HoldingText.Remove) == "function" then data.HoldingText:Remove() end
     if data.Box then
         if type(data.Box) == "table" then
             RemoveCornerBox(data.Box)
-        else
+        elseif type(data.Box.Remove) == "function" then
             data.Box:Remove()
         end
     end
-    if data.HPBar then data.HPBar:Remove() end
+    if data.HPBar and type(data.HPBar.Remove) == "function" then data.HPBar:Remove() end
 
     if data.SkeletonLines then
-        for _,l in pairs(data.SkeletonLines) do
-            l:Remove()
+        for _, l in pairs(data.SkeletonLines) do
+            if type(l.Remove) == "function" then l:Remove() end
         end
     end
 
@@ -249,47 +228,28 @@ end
 -- SETTINGS FUNCTIONS
 ------------------------------------------------
 
-function ESP:SetEnabled(v)
-    ESP.Settings.Enabled = v
-end
-
-function ESP:SetSkeletonEnabled(v)
-    ESP.Settings.SkeletonEnabled = v
-end
-
-function ESP:SetHPEnabled(v)
-    ESP.Settings.HPEnabled = v
-end
-
-function ESP:SetNameEnabled(v)
-    ESP.Settings.NameEnabled = v
-end
-
-function ESP:SetVisibilityCheck(v)
-    ESP.Settings.VisibilityCheck = v
-end
-
-function ESP:SetHoldingEnabled(v)
-    ESP.Settings.HoldingEnabled = v
-end
+function ESP:SetEnabled(v)       ESP.Settings.Enabled = v end
+function ESP:SetSkeletonEnabled(v) ESP.Settings.SkeletonEnabled = v end
+function ESP:SetHPEnabled(v)     ESP.Settings.HPEnabled = v end
+function ESP:SetNameEnabled(v)   ESP.Settings.NameEnabled = v end
+function ESP:SetVisibilityCheck(v) ESP.Settings.VisibilityCheck = v end
+function ESP:SetHoldingEnabled(v) ESP.Settings.HoldingEnabled = v end
 
 ------------------------------------------------
 -- ADD PLAYER
 ------------------------------------------------
 
 function ESP:AddPlayer(player)
-
     if player == LocalPlayer then return end
     if ESP.Objects[player] then return end
 
     local skeletonLines = {}
-
-    for i=1,10 do
+    for i = 1, 10 do
         skeletonLines[i] = NewLine()
     end
 
     local holdingText = NewText()
-    holdingText.Size = 14  -- slightly smaller than name
+    if holdingText.Size ~= nil then holdingText.Size = 14 end
 
     ESP.Objects[player] = {
         Type = "Player",
@@ -302,7 +262,7 @@ function ESP:AddPlayer(player)
     }
 
     player.CharacterAdded:Connect(function(char)
-        local hum = char:WaitForChild("Humanoid",5)
+        local hum = char:WaitForChild("Humanoid", 5)
         if hum then
             hum.Died:Connect(function()
                 local data = ESP.Objects[player]
@@ -315,16 +275,11 @@ function ESP:AddPlayer(player)
                     else data.Box.Visible = false end
                 end
                 if data.HPBar then data.HPBar.Visible = false end
-
                 if data.SkeletonLines then
-                    for _,l in pairs(data.SkeletonLines) do
-                        l.Visible = false
-                    end
+                    for _, l in pairs(data.SkeletonLines) do l.Visible = false end
                 end
-
             end)
         end
-
     end)
 end
 
@@ -332,14 +287,12 @@ end
 -- ADD NPC
 ------------------------------------------------
 
-function ESP:AddNPC(model,name)
-
+function ESP:AddNPC(model, name)
     if not model or not model:IsA("Model") then return end
     if ESP.Objects[model] then return end
 
     local skeletonLines = {}
-
-    for i=1,10 do
+    for i = 1, 10 do
         skeletonLines[i] = NewLine()
     end
 
@@ -364,8 +317,7 @@ end
 -- ADD PART
 ------------------------------------------------
 
-function ESP:AddPart(part,name,espCategory)
-
+function ESP:AddPart(part, name, espCategory)
     if not part or not part:IsA("BasePart") then return end
     if ESP.Objects[part] then return end
 
@@ -376,7 +328,7 @@ function ESP:AddPart(part,name,espCategory)
         EspCategory = espCategory or "item",
         EspColor = ESP.Colors[espCategory] or ESP.Colors.Item,
         Text = NewText(),
-        Box = nil  -- Parts only show text labels, no box
+        Box = nil
     }
 
     ESP.Connections[part] = part.AncestryChanged:Connect(function()
@@ -391,7 +343,7 @@ function ESP:Remove(object)
 end
 
 ------------------------------------------------
--- TRACK FOLDER (items/weapons/corpses)
+-- TRACK FOLDER
 ------------------------------------------------
 
 function ESP:TrackFolder(key, folder, category, Lookups)
@@ -402,13 +354,11 @@ function ESP:TrackFolder(key, folder, category, Lookups)
         ESP._trackedFolders[key] = nil
     end
 
-    -- Returns true if this model matches the category
     local function modelMatches(model)
         if not model:IsA("Model") then return false end
         local name = model.Name
         local nameLower = name:lower()
 
-        -- Helper: check lookup with exact then case-insensitive fallback
         local function inLookup(lookup)
             if lookup[name] then return true end
             for k in pairs(lookup) do
@@ -422,7 +372,6 @@ function ESP:TrackFolder(key, folder, category, Lookups)
         elseif category == "weapon" then
             return inLookup(Lookups.GunLookup)
         elseif category == "corpse" then
-            -- Corpses: not an item, not a gun, not a container, has a Humanoid OR HumanoidRootPart
             if inLookup(Lookups.ItemLookup) or inLookup(Lookups.GunLookup) then return false end
             if Lookups.ContainerLookup and inLookup(Lookups.ContainerLookup) then return false end
             return model:FindFirstChildOfClass("Humanoid") ~= nil
@@ -433,7 +382,6 @@ function ESP:TrackFolder(key, folder, category, Lookups)
         return false
     end
 
-    -- Get the single best anchor part for a model
     local function getAnchorPart(model)
         if model.PrimaryPart then return model.PrimaryPart end
         return model:FindFirstChildWhichIsA("BasePart")
@@ -443,17 +391,16 @@ function ESP:TrackFolder(key, folder, category, Lookups)
         if not modelMatches(model) then return end
         local part = getAnchorPart(model)
         if not part then return end
-        -- Use the model as the key to avoid duplicate tracking
         if ESP.Objects[model] then return end
 
         ESP.Objects[model] = {
             Type = "Part",
-            Object = part,       -- render position from this part
+            Object = part,
             Name = model.Name,
             EspCategory = category,
             EspColor = ESP.Colors[category] or ESP.Colors.Item,
             Text = NewText(),
-            Box = nil  -- Parts only show text labels, no box
+            Box = nil
         }
 
         ESP.Connections[model] = model.AncestryChanged:Connect(function()
@@ -463,12 +410,10 @@ function ESP:TrackFolder(key, folder, category, Lookups)
         end)
     end
 
-    -- Add existing models in the folder
     for _, obj in ipairs(folder:GetChildren()) do
         tryAddModel(obj)
     end
 
-    -- Watch for newly dropped items
     ESP._trackedFolders[key] = folder.ChildAdded:Connect(function(obj)
         tryAddModel(obj)
     end)
@@ -486,7 +431,6 @@ function ESP:TrackDescendants(key, container)
         ESP._trackedDescendants[key] = nil
     end
 
-    -- Only track Models that contain a Humanoid — guaranteed to be an actual NPC character
     local function isNPC(obj)
         if not obj:IsA("Model") then return false end
         return obj:FindFirstChildOfClass("Humanoid") ~= nil
@@ -512,19 +456,16 @@ end
 ------------------------------------------------
 
 function ESP:Untrack(key)
-    -- disconnect folder tracker
     if ESP._trackedFolders and ESP._trackedFolders[key] then
         ESP._trackedFolders[key]:Disconnect()
         ESP._trackedFolders[key] = nil
     end
 
-    -- disconnect descendants tracker
     if ESP._trackedDescendants and ESP._trackedDescendants[key] then
         ESP._trackedDescendants[key]:Disconnect()
         ESP._trackedDescendants[key] = nil
     end
 
-    -- Map folder keys to their EspCategory values
     local categoryMap = { items = "item", weapons = "weapon", corpses = "corpse", containers = "container" }
     local targetCategory = categoryMap[key] or key
 
@@ -545,7 +486,7 @@ end
 -- PLAYER AUTO REGISTER
 ------------------------------------------------
 
-for _,player in ipairs(Players:GetPlayers()) do
+for _, player in ipairs(Players:GetPlayers()) do
     ESP:AddPlayer(player)
 end
 
@@ -562,9 +503,10 @@ end)
 ------------------------------------------------
 
 RunService.RenderStepped:Connect(function()
+    if not DrawingAvailable then return end
 
     if not ESP.Settings.Enabled then
-        for _,data in pairs(ESP.Objects) do
+        for _, data in pairs(ESP.Objects) do
             if data.Text then data.Text.Visible = false end
             if data.HoldingText then data.HoldingText.Visible = false end
             if data.Box then
@@ -573,25 +515,21 @@ RunService.RenderStepped:Connect(function()
             end
             if data.HPBar then data.HPBar.Visible = false end
             if data.SkeletonLines then
-                for _,l in pairs(data.SkeletonLines) do
-                    l.Visible = false
-                end
+                for _, l in pairs(data.SkeletonLines) do l.Visible = false end
             end
         end
         return
     end
 
-    for _,data in pairs(ESP.Objects) do
+    for _, data in pairs(ESP.Objects) do
 
         local root
         local model
 
         if data.Type == "Player" then
-
             model = data.Object.Character
 
             if not model or not model.Parent then
-
                 if data.Text then data.Text.Visible = false end
                 if data.HoldingText then data.HoldingText.Visible = false end
                 if data.Box then
@@ -599,13 +537,9 @@ RunService.RenderStepped:Connect(function()
                     else data.Box.Visible = false end
                 end
                 if data.HPBar then data.HPBar.Visible = false end
-
                 if data.SkeletonLines then
-                    for _,l in pairs(data.SkeletonLines) do
-                        l.Visible = false
-                    end
+                    for _, l in pairs(data.SkeletonLines) do l.Visible = false end
                 end
-
                 continue
             end
 
@@ -617,7 +551,6 @@ RunService.RenderStepped:Connect(function()
             root = GetRoot(model)
 
         else
-            -- Part: guard against destroyed anchor part
             if not data.Object or not data.Object.Parent then
                 if data.Text then data.Text.Visible = false end
                 continue
@@ -627,7 +560,7 @@ RunService.RenderStepped:Connect(function()
 
         if not root then continue end
 
-        local screenPos,onScreen = WorldToScreen(root.Position)
+        local screenPos, onScreen = WorldToScreen(root.Position)
 
         if not onScreen then
             if data.Text then data.Text.Visible = false end
@@ -638,16 +571,13 @@ RunService.RenderStepped:Connect(function()
             end
             if data.HPBar then data.HPBar.Visible = false end
             if data.SkeletonLines then
-                for _,l in pairs(data.SkeletonLines) do
-                    l.Visible = false
-                end
+                for _, l in pairs(data.SkeletonLines) do l.Visible = false end
             end
             continue
         end
 
         local dist = (Camera.CFrame.Position - root.Position).Magnitude
 
-        -- Per-category distance culling
         do
             local maxDist
             if data.Type == "Player" then
@@ -666,43 +596,31 @@ RunService.RenderStepped:Connect(function()
                 end
                 if data.HPBar then data.HPBar.Visible = false end
                 if data.SkeletonLines then
-                    for _,l in pairs(data.SkeletonLines) do l.Visible = false end
+                    for _, l in pairs(data.SkeletonLines) do l.Visible = false end
                 end
                 continue
             end
         end
 
-------------------------------------------------
--- TEXT
--- Players/NPCs: gated by NameEnabled toggle
--- Parts (items/weapons/corpses/npcs): always shown independently
-------------------------------------------------
-
         if data.Text then
-
-            -- Parts (item/weapon/corpse) always show their label independently
             if data.Type == "Part" then
-
                 local catKey = data.EspCategory and (data.EspCategory:sub(1,1):upper() .. data.EspCategory:sub(2)) or "Item"
                 local color = ESP.Colors[catKey] or ESP.Colors.Item
-                local pos = root.Position
-                local screen, on = WorldToScreen(pos)
+                local screen, on = WorldToScreen(root.Position)
 
                 if on then
-                    data.Text.Text    = string.format("%s [%.0fm]", data.Name, dist)
-                    data.Text.Color   = color
+                    data.Text.Text     = string.format("%s [%.0fm]", data.Name, dist)
+                    data.Text.Color    = color
                     data.Text.Position = Vector2.new(screen.X, screen.Y - data.Text.Size - 2)
-                    data.Text.Visible = true
+                    data.Text.Visible  = true
                 else
                     data.Text.Visible = false
                 end
 
-            -- NPC labels are also independent of NameEnabled
             elseif data.Type == "NPC" then
-
                 local color = ESP.Colors.NPC
                 local head  = model and model:FindFirstChild("Head")
-                local pos   = head and (head.Position + Vector3.new(0,0.6,0)) or root.Position
+                local pos   = head and (head.Position + Vector3.new(0, 0.6, 0)) or root.Position
                 local screen, on = WorldToScreen(pos)
 
                 if on then
@@ -723,15 +641,12 @@ RunService.RenderStepped:Connect(function()
                     data.Text.Visible = false
                 end
 
-            -- Players: name gated by NameEnabled, holding always shown
             elseif data.Type == "Player" then
-
                 local head = model:FindFirstChild("Head")
-                local pos  = head and (head.Position + Vector3.new(0,0.6,0)) or root.Position
+                local pos  = head and (head.Position + Vector3.new(0, 0.6, 0)) or root.Position
                 local screen, on = WorldToScreen(pos)
 
                 if on then
-                    -- Figure out anchor X/Y for text (box top or head position)
                     local anchorX, anchorY
                     if data.BoxBounds then
                         anchorX = data.BoxBounds.X + data.BoxBounds.W / 2
@@ -741,7 +656,6 @@ RunService.RenderStepped:Connect(function()
                         anchorY = screen.Y - data.Text.Size - 2
                     end
 
-                    -- Name label — gated by NameEnabled
                     if ESP.Settings.NameEnabled then
                         data.Text.Text     = string.format("%s [%.0fm]", data.Object.Name, dist)
                         data.Text.Color    = ESP.Colors.Player
@@ -751,18 +665,13 @@ RunService.RenderStepped:Connect(function()
                         data.Text.Visible = false
                     end
 
-                    -- Holding label — toggled independently
                     if ESP.Settings.HoldingEnabled then
-                        -- Check both the player instance and their character
                         local holdingVal = data.Object:FindFirstChild("Holding")
                             or (model and model:FindFirstChild("Holding"))
                         local holdingStr = holdingVal and tostring(holdingVal.Value) or ""
-                        -- debug: if still empty, print all children names to find it
-                        if holdingStr == "" then
-                            holdingStr = "[no Holding]"
-                        end
+                        if holdingStr == "" then holdingStr = "[no Holding]" end
+
                         if holdingStr ~= "" then
-                            -- Position below the box if visible, otherwise below the name
                             local holdY
                             if data.BoxBounds then
                                 holdY = data.BoxBounds.Y + data.BoxBounds.H + 2
@@ -770,7 +679,7 @@ RunService.RenderStepped:Connect(function()
                                 holdY = anchorY + data.Text.Size + 2
                             end
                             data.HoldingText.Text     = holdingStr
-                            data.HoldingText.Color    = Color3.fromRGB(255,220,100)
+                            data.HoldingText.Color    = Color3.fromRGB(255, 220, 100)
                             data.HoldingText.Position = Vector2.new(anchorX, holdY)
                             data.HoldingText.Visible  = true
                         else
@@ -779,29 +688,21 @@ RunService.RenderStepped:Connect(function()
                     else
                         data.HoldingText.Visible = false
                     end
-
                 else
                     data.Text.Visible = false
                     data.HoldingText.Visible = false
                 end
-
             end
         end
 
-------------------------------------------------
--- CORNER BOX (Head-to-foot screen projection)
-------------------------------------------------
+        data.BoxBounds = nil
 
-        data.BoxBounds = nil  -- reset each frame
-
-        if data.Box and type(data.Box) == "table" then
-
+        if data.Box and type(data.Box) == "table" and #data.Box > 0 then
             local useBox =
                 (data.Type == "Player" and ESP.Settings.PlayerBoxEnabled)
                 or (data.Type == "NPC" and ESP.Settings.NPCBoxEnabled)
 
             if useBox and model then
-
                 local hrp  = model:FindFirstChild("HumanoidRootPart")
                 local head = model:FindFirstChild("Head")
                 local foot = model:FindFirstChild("LeftFoot")
@@ -810,91 +711,68 @@ RunService.RenderStepped:Connect(function()
                           or model:FindFirstChild("Right Leg")
 
                 if hrp and head then
-
                     local topPos    = head.Position + Vector3.new(0, head.Size.Y + 0.2, 0)
                     local bottomPos = foot
                         and (foot.Position - Vector3.new(0, foot.Size.Y / 2, 0))
                         or  (hrp.Position  - Vector3.new(0, 3.2, 0))
 
-                    local topScreen,    onTop    = WorldToScreen(topPos)
+                    local topScreen, onTop       = WorldToScreen(topPos)
                     local bottomScreen, onBottom = WorldToScreen(bottomPos)
 
                     if onTop and onBottom then
-
-                        local boxH = math.abs(bottomScreen.Y - topScreen.Y)
-                        local boxW = boxH * 0.5
-                        local pad  = boxH * 0.05
-
-                        local boxX = screenPos.X - boxW / 2 - pad
-                        local boxY = topScreen.Y - pad
+                        local boxH  = math.abs(bottomScreen.Y - topScreen.Y)
+                        local boxW  = boxH * 0.5
+                        local pad   = boxH * 0.05
+                        local boxX  = screenPos.X - boxW / 2 - pad
+                        local boxY  = topScreen.Y - pad
                         local boxW2 = boxW + pad * 2
                         local boxH2 = boxH + pad * 2
 
                         local boxColor = (data.Type == "Player") and ESP.Colors.Player or ESP.Colors.NPC
                         DrawCornerBox(data.Box, boxX, boxY, boxW2, boxH2, boxColor)
 
-                        -- store bounds for text anchoring and HP bar
                         data.BoxBounds = { X = boxX, Y = boxY, W = boxW2, H = boxH2 }
-
                     else
                         SetCornerBoxVisible(data.Box, false)
                     end
-
                 else
                     SetCornerBoxVisible(data.Box, false)
                 end
-
             else
                 SetCornerBoxVisible(data.Box, false)
             end
-
         end
 
-------------------------------------------------
--- HP BAR
-------------------------------------------------
-
         if ESP.Settings.HPEnabled and data.HPBar and model then
-
             local humanoid = model:FindFirstChildOfClass("Humanoid")
 
             if humanoid and data.BoxBounds then
+                local percent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                local height  = data.BoxBounds.H * percent
 
-                local percent = math.clamp(humanoid.Health / humanoid.MaxHealth,0,1)
-                local height = data.BoxBounds.H * percent
-
-                data.HPBar.Size = Vector2.new(ESP.Settings.HPWidth, height)
+                data.HPBar.Size     = Vector2.new(ESP.Settings.HPWidth, height)
                 data.HPBar.Position = Vector2.new(
                     data.BoxBounds.X - ESP.Settings.HPWidth - 2,
                     data.BoxBounds.Y + (data.BoxBounds.H - height)
                 )
-                data.HPBar.Color = ESP.Colors.HP
+                data.HPBar.Color   = ESP.Colors.HP
                 data.HPBar.Visible = true
-
             else
                 data.HPBar.Visible = false
             end
-
         end
 
-------------------------------------------------
--- SKELETON
-------------------------------------------------
-
         if ESP.Settings.SkeletonEnabled and data.SkeletonLines and model then
-
-            for _,line in pairs(data.SkeletonLines) do
-                line.Visible = false
-            end
+            for _, line in pairs(data.SkeletonLines) do line.Visible = false end
 
             local parts = {
-                Head = model:FindFirstChild("Head"),
+                Head  = model:FindFirstChild("Head"),
                 Torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso"),
-                Root = model:FindFirstChild("HumanoidRootPart"),
-                LA = model:FindFirstChild("LeftUpperArm") or model:FindFirstChild("Left Arm"),
-                RA = model:FindFirstChild("RightUpperArm") or model:FindFirstChild("Right Arm"),
-                LL = model:FindFirstChild("LeftUpperLeg") or model:FindFirstChild("Left Leg"),
-                RL = model:FindFirstChild("RightUpperLeg") or model:FindFirstChild("Right Leg")
+                Root  = model:FindFirstChild("HumanoidRootPart"),
+                LA    = model:FindFirstChild("LeftUpperArm")  or model:FindFirstChild("Left Arm"),
+                RA    = model:FindFirstChild("RightUpperArm") or model:FindFirstChild("Right Arm"),
+                LL    = model:FindFirstChild("LeftUpperLeg")  or model:FindFirstChild("Left Leg"),
+                RL    = model:FindFirstChild("RightUpperLeg") or model:FindFirstChild("Right Leg")
             }
 
             local pairsList = {
@@ -907,36 +785,28 @@ RunService.RenderStepped:Connect(function()
             }
 
             local index = 1
-
-            for _,pair in ipairs(pairsList) do
-
-                local p1 = parts[pair[1]]
-                local p2 = parts[pair[2]]
+            for _, pair in ipairs(pairsList) do
+                local p1   = parts[pair[1]]
+                local p2   = parts[pair[2]]
                 local line = data.SkeletonLines[index]
 
                 if p1 and p2 and line then
-
-                    local s1,on1 = Camera:WorldToViewportPoint(p1.Position)
-                    local s2,on2 = Camera:WorldToViewportPoint(p2.Position)
+                    local s1, on1 = Camera:WorldToViewportPoint(p1.Position)
+                    local s2, on2 = Camera:WorldToViewportPoint(p2.Position)
 
                     if on1 and on2 and s1.Z > 0 and s2.Z > 0 then
-                        line.From = Vector2.new(s1.X,s1.Y)
-                        line.To = Vector2.new(s2.X,s2.Y)
-                        line.Color = ESP.Colors.Skeleton
+                        line.From    = Vector2.new(s1.X, s1.Y)
+                        line.To      = Vector2.new(s2.X, s2.Y)
+                        line.Color   = ESP.Colors.Skeleton
                         line.Visible = true
                     end
-
                 end
 
                 index += 1
             end
-
         end
 
     end
-
 end)
-
-
 
 return ESP
