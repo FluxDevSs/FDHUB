@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.22
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.23
     Death safe + cleanup safe
 ]]
 
@@ -566,6 +566,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 return ESP
+
 
 
 
