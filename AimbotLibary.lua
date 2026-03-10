@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.0
+local Aimbot = {}
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -47,6 +47,7 @@ local function IsAlive(player)
     return hum and hum.Health > 0
 end
 
+-- Normal FOV check, requires target to be visible on screen
 local function GetClosestPlayerInFOV()
     local closestPart = nil
     local shortestDistance = math.huge
@@ -61,6 +62,7 @@ local function GetClosestPlayerInFOV()
             if Aimbot.Settings.TeamCheck and player.Team == LocalPlayer.Team then
                 continue
             end
+
             if Aimbot.Settings.AliveCheck and not IsAlive(player) then
                 continue
             end
@@ -71,7 +73,7 @@ local function GetClosestPlayerInFOV()
             local screenPos, visible = Camera:WorldToViewportPoint(part.Position)
             if not visible then continue end
 
-            local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+            local distance = (Vector2.new(screenPos.X,screenPos.Y) - screenCenter).Magnitude
 
             if distance <= Aimbot.Settings.FOVRadius and distance < shortestDistance then
                 shortestDistance = distance
@@ -83,6 +85,7 @@ local function GetClosestPlayerInFOV()
     return closestPart
 end
 
+-- Through walls FOV check, ignores visibility
 local function GetClosestPlayerInFOVThroughWalls()
     local closestPart = nil
     local shortestDistance = math.huge
@@ -97,6 +100,7 @@ local function GetClosestPlayerInFOVThroughWalls()
             if Aimbot.Settings.TeamCheck and player.Team == LocalPlayer.Team then
                 continue
             end
+
             if Aimbot.Settings.AliveCheck and not IsAlive(player) then
                 continue
             end
@@ -143,81 +147,43 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-------------------------------------------------
--- BULLET AIMBOT HOOK
-------------------------------------------------
-
-local hooked = false
-
-local function TryHookBullet()
-    if hooked then return end
-
-    for _, v in pairs(getloadedmodules()) do
-        if v.Name == "Bullet" then
-            local ok, result = pcall(require, v)
-            if ok and type(result) == "table" and result.CreateBullet then
-
-                local isFiring = false
-                local original
-                original = hookfunction(result.CreateBullet, newcclosure(function(self, p66, p67, p68, p69, a, p70, b, p71)
-                    if not Aimbot.Settings.BulletAimbot then
-                        return original(self, p66, p67, p68, p69, a, p70, b, p71)
-                    end
-                    if isFiring then
-                        return original(self, p66, p67, p68, p69, a, p70, b, p71)
-                    end
-
-                    isFiring = true
-
-                    local target = GetClosestPlayerInFOVThroughWalls()
-                    if target and p69 then
-                        pcall(function()
-                            p69.CFrame = CFrame.new(p69.Position, target.Position)
-                        end)
-                    end
-
-                    local res = table.pack(original(self, p66, p67, p68, p69, a, p70, b, p71))
-                    isFiring = false
-                    return table.unpack(res)
-                end))
-
-                hooked = true
-                warn("Bullet hook successful")
-                break
-            end
+-- Bullet aimbot hook
+local BulletModule
+for _, v in pairs(getloadedmodules()) do
+    if v.Name == "Bullet" then
+        local ok, result = pcall(require, v)
+        if ok and type(result) == "table" and result.CreateBullet then
+            BulletModule = result
+            break
         end
     end
-
-    if not hooked then
-        warn("BulletModule not found — will retry on next tool equip")
-    end
 end
 
-local function ListenForTools(char)
-    char.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then
-            task.wait(0.2)
-            TryHookBullet()
+if BulletModule and BulletModule.CreateBullet then
+    local isFiring = false
+    local original
+    original = hookfunction(BulletModule.CreateBullet, newcclosure(function(self, p66, p67, p68, p69, a, p70, b, p71)
+        if not Aimbot.Settings.BulletAimbot then
+            return original(self, p66, p67, p68, p69, a, p70, b, p71)
         end
-    end)
+        if isFiring then
+            return original(self, p66, p67, p68, p69, a, p70, b, p71)
+        end
+        isFiring = true
+        local target = GetClosestPlayerInFOVThroughWalls()
+        if target and p69 then
+            local aimPos = target.Position
+            pcall(function()
+                p69.CFrame = CFrame.new(p69.Position, aimPos)
+            end)
+        end
+        local result = table.pack(original(self, p66, p67, p68, p69, a, p70, b, p71))
+        isFiring = false
+        return table.unpack(result)
+    end))
+else
+    warn("BulletModule not found — bullet aimbot unavailable")
 end
-
--- Try immediately
-TryHookBullet()
-
--- Retry on character spawn
-LocalPlayer.CharacterAdded:Connect(function(char)
-    ListenForTools(char)
-end)
-
--- Retry if character already exists
-if LocalPlayer.Character then
-    ListenForTools(LocalPlayer.Character)
-end
-
-------------------------------------------------
--- METHODS
-------------------------------------------------
 
 function Aimbot:SetFOV(radius)
     self.Settings.FOVRadius = radius
@@ -228,7 +194,7 @@ function Aimbot:SetFOVVisible(state)
 end
 
 function Aimbot:SetSmoothness(value)
-    self.Settings.Smoothness = math.clamp(value, 0, 1)
+    self.Settings.Smoothness = math.clamp(value,0,1)
 end
 
 function Aimbot:SetAimPart(part)
