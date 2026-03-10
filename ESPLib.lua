@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.27
     Death safe + cleanup safe
 ]]
 
