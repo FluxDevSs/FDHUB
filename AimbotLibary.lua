@@ -1,4 +1,4 @@
-local Aimbot = {}
+local Aimbot = {} -- v1.1
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -162,22 +162,34 @@ end
 if BulletModule and BulletModule.CreateBullet then
     local isFiring = false
     local original
-    original = hookfunction(BulletModule.CreateBullet, newcclosure(function(self, p66, p67, p68, p69, a, p70, b, p71)
+    original = hookfunction(BulletModule.CreateBullet, newcclosure(function(...)
         if not Aimbot.Settings.BulletAimbot then
-            return original(self, p66, p67, p68, p69, a, p70, b, p71)
+            return original(...)
         end
+    
         if isFiring then
-            return original(self, p66, p67, p68, p69, a, p70, b, p71)
+            return original(...)
         end
+    
         isFiring = true
+    
+        local args = {...}
+    
         local target = GetClosestPlayerInFOVThroughWalls()
-        if target and p69 then
-            local aimPos = target.Position
-            pcall(function()
-                p69.CFrame = CFrame.new(p69.Position, aimPos)
-            end)
+    
+        if target then
+            for i,v in ipairs(args) do
+                if typeof(v) == "Instance" and v:IsA("BasePart") then
+                    pcall(function()
+                        v.CFrame = CFrame.new(v.Position, target.Position)
+                    end)
+                    break
+                end
+            end
         end
-        local result = table.pack(original(self, p66, p67, p68, p69, a, p70, b, p71))
+    
+        local result = table.pack(original(unpack(args)))
+    
         isFiring = false
         return table.unpack(result)
     end))
@@ -210,3 +222,4 @@ function Aimbot:SetBulletAimbot(state)
 end
 
 return Aimbot
+
