@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.2034
     Death safe + cleanup safe
 ]]
 
@@ -49,7 +49,8 @@ ESP.Settings = {
         container = 500,
     },
 
-    VisibilityCheck = false, -- when true, turns player/NPC ESP green if they can see you
+    VisibilityCheck = false,
+    HoldingEnabled = false,
 }
 
 ESP.Colors = {
@@ -266,6 +267,10 @@ end
 
 function ESP:SetVisibilityCheck(v)
     ESP.Settings.VisibilityCheck = v
+end
+
+function ESP:SetHoldingEnabled(v)
+    ESP.Settings.HoldingEnabled = v
 end
 
 ------------------------------------------------
@@ -746,18 +751,21 @@ RunService.RenderStepped:Connect(function()
                         data.Text.Visible = false
                     end
 
-                    -- Holding label — always shown independently
-                    local holdingVal = data.Object:FindFirstChild("Holding")
-                    local holdingStr = holdingVal and tostring(holdingVal.Value) or ""
-                    if holdingStr ~= "" then
-                        -- Position below name if visible, otherwise at anchor
-                        local holdY = ESP.Settings.NameEnabled
-                            and (anchorY + data.Text.Size + 2)
-                            or  (anchorY)
-                        data.HoldingText.Text     = holdingStr
-                        data.HoldingText.Color    = Color3.fromRGB(255,220,100)
-                        data.HoldingText.Position = Vector2.new(anchorX, holdY)
-                        data.HoldingText.Visible  = true
+                    -- Holding label — toggled independently
+                    if ESP.Settings.HoldingEnabled then
+                        local holdingVal = data.Object:FindFirstChild("Holding")
+                        local holdingStr = holdingVal and tostring(holdingVal.Value) or ""
+                        if holdingStr ~= "" then
+                            local holdY = ESP.Settings.NameEnabled
+                                and (anchorY + data.Text.Size + 2)
+                                or  (anchorY)
+                            data.HoldingText.Text     = holdingStr
+                            data.HoldingText.Color    = Color3.fromRGB(255,220,100)
+                            data.HoldingText.Position = Vector2.new(anchorX, holdY)
+                            data.HoldingText.Visible  = true
+                        else
+                            data.HoldingText.Visible = false
+                        end
                     else
                         data.HoldingText.Visible = false
                     end
