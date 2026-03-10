@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.27
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
     Death safe + cleanup safe
 ]]
 
@@ -365,7 +365,7 @@ function ESP:AddPart(part,name,espCategory)
         EspCategory = espCategory or "item",
         EspColor = ESP.Colors[espCategory] or ESP.Colors.Item,
         Text = NewText(),
-        Box = NewBox()
+        Box = nil  -- Parts only show text labels, no box
     }
 
     ESP.Connections[part] = part.AncestryChanged:Connect(function()
@@ -429,7 +429,7 @@ function ESP:TrackFolder(key, folder, category, Lookups)
             EspCategory = category,
             EspColor = ESP.Colors[category] or ESP.Colors.Item,
             Text = NewText(),
-            Box = NewBox()
+            Box = nil  -- Parts only show text labels, no box
         }
 
         ESP.Connections[model] = model.AncestryChanged:Connect(function()
@@ -591,6 +591,11 @@ RunService.RenderStepped:Connect(function()
             root = GetRoot(model)
 
         else
+            -- Part: guard against destroyed anchor part
+            if not data.Object or not data.Object.Parent then
+                if data.Text then data.Text.Visible = false end
+                continue
+            end
             root = data.Object
         end
 
