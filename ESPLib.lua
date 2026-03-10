@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.21
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.22
     Death safe + cleanup safe
 ]]
 
@@ -439,9 +439,7 @@ RunService.RenderStepped:Connect(function()
                 local boxH = scale * 2.4
 
                 local boxX = screenPos.X - boxW / 2
-                local boxY = screenPos.Y - boxH / 2
-
-                boxX = boxX + ESP.Settings.OffsetY
+                local boxY = screenPos.Y - boxH * 0.75  -- shift up so box starts above head
 
                 data.Box.Position = Vector2.new(boxX, boxY)
                 data.Box.Size = Vector2.new(boxW, boxH)
@@ -548,5 +546,6 @@ RunService.RenderStepped:Connect(function()
 end)
 
 return ESP
+
 
 
