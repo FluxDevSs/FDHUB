@@ -1,6 +1,6 @@
 --[[ 
     Custom ESP Library
-    Text ESP + Box ESP + Skeleton ESP + HP Bars v2.26
+    Text ESP + Box ESP + Skeleton ESP + HP Bars v3.0
     Death safe + cleanup safe
 ]]
 
@@ -43,9 +43,9 @@ ESP.Settings = {
     MaxDistance = {
         Player    = 1000,
         NPC       = 500,
-        item      = 200,
-        weapon    = 200,
-        corpse    = 200,
+        item      = 500,
+        weapon    = 500,
+        corpse    = 500,
         container = 500,
     },
 
@@ -395,16 +395,29 @@ function ESP:TrackFolder(key, folder, category, Lookups)
     local function modelMatches(model)
         if not model:IsA("Model") then return false end
         local name = model.Name
+        local nameLower = name:lower()
+
+        -- Helper: check lookup with exact then case-insensitive fallback
+        local function inLookup(lookup)
+            if lookup[name] then return true end
+            for k in pairs(lookup) do
+                if k:lower() == nameLower then return true end
+            end
+            return false
+        end
+
         if category == "item" then
-            return Lookups.ItemLookup[name] == true
+            return inLookup(Lookups.ItemLookup)
         elseif category == "weapon" then
-            return Lookups.GunLookup[name] == true
+            return inLookup(Lookups.GunLookup)
         elseif category == "corpse" then
-            -- Corpses are dropped NPC bodies — they have a Humanoid but are not items/guns
-            if Lookups.ItemLookup[name] or Lookups.GunLookup[name] then return false end
+            -- Corpses: not an item, not a gun, not a container, has a Humanoid OR HumanoidRootPart
+            if inLookup(Lookups.ItemLookup) or inLookup(Lookups.GunLookup) then return false end
+            if Lookups.ContainerLookup and inLookup(Lookups.ContainerLookup) then return false end
             return model:FindFirstChildOfClass("Humanoid") ~= nil
+                or model:FindFirstChild("HumanoidRootPart") ~= nil
         elseif category == "container" then
-            return Lookups.ContainerLookup[name] == true
+            return inLookup(Lookups.ContainerLookup)
         end
         return false
     end
