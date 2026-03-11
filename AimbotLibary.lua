@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.1
+local Aimbot = {} -- v2.2
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -165,67 +165,52 @@ local function getTargetInfo()
     local camPos = workspace.CurrentCamera.CFrame.Position
     local hitPos = hitPart.Position
 
-    -- Direction from camera toward target
     local direction = (hitPos - camPos).Unit
-
-    -- Hit position on the surface of the part facing the camera
     local surfacePos = hitPos + (camPos - hitPos).Unit * (hitPart.Size.Magnitude / 2)
-
-    -- Replicate exactly what the game does:
-    -- v193 = v155.CFrame:ToObjectSpace(CFrame.new(v158))
     local hitCFrame = hitPart.CFrame:ToObjectSpace(CFrame.new(surfacePos))
 
     return direction, hitPart, hitCFrame
 end
 
--- Hook FireProjectile (InvokeServer - first shot)
-local oldInvoke = FireProjectile.InvokeServer
-FireProjectile.InvokeServer = newcclosure(function(self, direction, seed, timestamp)
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+
     if not Aimbot.Settings.BulletAimbot then
-        return oldInvoke(self, direction, seed, timestamp)
+        return oldNamecall(self, ...)
     end
 
-    local newDir, _, _ = getTargetInfo()
-    if newDir then
-        direction = newDir
+    -- Hook FireProjectile (RemoteFunction:InvokeServer)
+    if self == FireProjectile and method == "InvokeServer" then
+        local newDir, _, _ = getTargetInfo()
+        if newDir then
+            args[1] = newDir
+        end
+        return oldNamecall(self, table.unpack(args))
     end
 
-    return oldInvoke(self, direction, seed, timestamp)
-end)
-
--- Hook VisualProjectile (FireServer - pellets/subsequent shots)
-local oldVisualFire = VisualProjectile.FireServer
-VisualProjectile.FireServer = newcclosure(function(self, direction, seed)
-    if not Aimbot.Settings.BulletAimbot then
-        return oldVisualFire(self, direction, seed)
+    -- Hook VisualProjectile (RemoteEvent:FireServer)
+    if self == VisualProjectile and method == "FireServer" then
+        local newDir, _, _ = getTargetInfo()
+        if newDir then
+            args[1] = newDir
+        end
+        return oldNamecall(self, table.unpack(args))
     end
 
-    local newDir, _, _ = getTargetInfo()
-    if newDir then
-        direction = newDir
+    -- Hook ProjectileInflict (RemoteEvent:FireServer)
+    if self == ProjectileInflict and method == "FireServer" then
+        local _, newHitPart, newHitCFrame = getTargetInfo()
+        if newHitPart and newHitCFrame then
+            args[1] = newHitPart
+            args[2] = newHitCFrame
+        end
+        return oldNamecall(self, table.unpack(args))
     end
 
-    return oldVisualFire(self, direction, seed)
-end)
-
--- Hook ProjectileInflict - this is what actually deals damage on the server
--- Game code: v6:FireServer(v155, v193, v123, tick())
--- v155 = hit part, v193 = v155.CFrame:ToObjectSpace(CFrame.new(hitPosition))
-local oldInflict = ProjectileInflict.FireServer
-ProjectileInflict.FireServer = newcclosure(function(self, hitPart, hitCFrame, seed, timestamp)
-    if not Aimbot.Settings.BulletAimbot then
-        return oldInflict(self, hitPart, hitCFrame, seed, timestamp)
-    end
-
-    local _, newHitPart, newHitCFrame = getTargetInfo()
-    if newHitPart and newHitCFrame then
-        hitPart = newHitPart
-        hitCFrame = newHitCFrame
-    end
-
-    return oldInflict(self, hitPart, hitCFrame, seed, timestamp)
-end)
-
+    return oldNamecall(self, ...)
+end))
 ------------------------------------------------
 -- API
 ------------------------------------------------
@@ -259,3 +244,4 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
