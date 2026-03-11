@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.6
+local Aimbot = {} -- v1.7
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -230,31 +230,44 @@ if BulletModule and BulletFuncName then
         local args = {...}
         local target = GetClosestPlayerInFOVThroughWalls()
     
-        if target then
-            for i, v in ipairs(args) do
-    
-                -- THIS IS WHERE YOU PUT IT (replaces old BasePart block)
-                if typeof(v) == "Instance" and v:IsA("BasePart") then
-                    pcall(function()
-                        v.CanCollide = false
-                        v.CanTouch = false
-                        v.CFrame = CFrame.new(target.Position)
-                    end)
-                    break
+       if target then
+            -- Get a reliable hit position (HumanoidRootPart > Head > the part itself)
+            local targetPos
+            local character = target.Parent or target
+            
+            if character:FindFirstChild("HumanoidRootPart") then
+                targetPos = character.HumanoidRootPart.Position
+            elseif character:FindFirstChild("Head") then
+                targetPos = character.Head.Position
+            elseif target:IsA("BasePart") then
+                targetPos = target.Position
+            end
+        
+            if targetPos then
+                for i, v in ipairs(args) do
+        
+                    if typeof(v) == "Instance" and v:IsA("BasePart") then
+                        pcall(function()
+                            v.CanCollide = false
+                            v.CanTouch = false
+                            v.CFrame = CFrame.new(targetPos)
+                        end)
+                        break
+                    end
+        
+                    if typeof(v) == "CFrame" then
+                        local offset = (targetPos - Camera.CFrame.Position).Unit * 0.5
+                        args[i] = CFrame.new(targetPos - offset)
+                        break
+                    end
+        
+                    if typeof(v) == "Vector3" then
+                        local offset = (targetPos - Camera.CFrame.Position).Unit * 0.5
+                        args[i] = targetPos - offset
+                        break
+                    end
+        
                 end
-    
-                if typeof(v) == "CFrame" then
-                    local offset = (target.Position - Camera.CFrame.Position).Unit * 0.5
-                    args[i] = CFrame.new(target.Position - offset)
-                    break
-                end
-    
-                if typeof(v) == "Vector3" then
-                    local offset = (target.Position - Camera.CFrame.Position).Unit * 0.5
-                    args[i] = target.Position - offset
-                    break
-                end
-    
             end
         end
     
@@ -303,5 +316,6 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
 
 
