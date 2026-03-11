@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.3
+local Aimbot = {} -- v2.4
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -179,13 +179,19 @@ end
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
     local method = getnamecallmethod()
-    local args = {...}
 
+    -- Early exit if not one of our remotes - prevents crash
+    if self ~= FireProjectile and self ~= VisualProjectile and self ~= ProjectileInflict then
+        return oldNamecall(self, ...)
+    end
+
+    -- Early exit if bullet aimbot is off
     if not Aimbot.Settings.BulletAimbot then
         return oldNamecall(self, ...)
     end
 
-    -- Hook FireProjectile (RemoteFunction:InvokeServer)
+    local args = {...}
+
     if self == FireProjectile and method == "InvokeServer" then
         local newDir, _, _ = getTargetInfo()
         if newDir then
@@ -194,7 +200,6 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         return oldNamecall(self, table.unpack(args))
     end
 
-    -- Hook VisualProjectile (RemoteEvent:FireServer)
     if self == VisualProjectile and method == "FireServer" then
         local newDir, _, _ = getTargetInfo()
         if newDir then
@@ -203,19 +208,16 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         return oldNamecall(self, table.unpack(args))
     end
 
--- Hook ProjectileInflict (RemoteEvent:FireServer)
     if self == ProjectileInflict and method == "FireServer" then
         local _, newHitPart, newHitCFrame = getTargetInfo()
         if newHitPart and newHitCFrame then
-            -- args[1] is hitPart, args[2] is hitCFrame
-            -- make sure we're not overwriting seed/timestamp
             return oldNamecall(self, newHitPart, newHitCFrame, args[3], args[4])
         end
-        return oldNamecall(self, ...)
     end
 
     return oldNamecall(self, ...)
 end))
+
 ------------------------------------------------
 -- API
 ------------------------------------------------
@@ -249,5 +251,6 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
 
 
