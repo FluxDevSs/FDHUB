@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.8
+local Aimbot = {} -- v1.9
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -143,134 +143,87 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- Replace the entire BULLET AIMBOT HOOK section with this:
+
 ------------------------------------------------
--- BULLET AIMBOT HOOK
+-- BULLET AIMBOT HOOK (Direct Remote Hook)
 ------------------------------------------------
 
-local BulletModule = nil
-local BulletFuncName = nil
+local FireProjectile = game.ReplicatedStorage.Remotes.FireProjectile
+local VisualProjectile = game.ReplicatedStorage.Remotes.VisualProjectile
+local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 
-local MODULE_NAME_PATTERNS = {
-    "bullet", "projectile", "proj", "gun", "shoot", "fire", "ballistic"
-}
+local function getTargetDirection()
+    local target = GetClosestPlayerInFOVThroughWalls()
+    if not target then return nil end
 
-local FUNC_NAME_PATTERNS = {
-    "CreateBullet", "FireBullet", "Shoot", "Fire", "NewBullet",
-    "SpawnBullet", "CreateProjectile", "FireProjectile"
-}
+    local targetPos
+    local character = target.Parent or target
 
-local function nameMatchesAny(name, patterns)
-    local lower = name:lower()
-    for _, pat in ipairs(patterns) do
-        if lower:find(pat:lower(), 1, true) then
-            return true
+    if character:FindFirstChild("HumanoidRootPart") then
+        targetPos = character.HumanoidRootPart.Position
+    elseif character:FindFirstChild("Head") then
+        targetPos = character.Head.Position
+    elseif target:IsA("BasePart") then
+        targetPos = target.Position
+    end
+
+    if not targetPos then return nil, nil end
+
+    local camPos = workspace.CurrentCamera.CFrame.Position
+    local direction = (targetPos - camPos).Unit
+    return direction, targetPos
+end
+
+-- Hook FireProjectile (InvokeServer - first shot)
+local oldInvoke = FireProjectile.InvokeServer
+FireProjectile.InvokeServer = newcclosure(function(self, direction, seed, timestamp)
+    if not Aimbot.Settings.BulletAimbot then
+        return oldInvoke(self, direction, seed, timestamp)
+    end
+
+    local newDir, _ = getTargetDirection()
+    if newDir then
+        direction = newDir
+    end
+
+    return oldInvoke(self, direction, seed, timestamp)
+end)
+
+-- Hook VisualProjectile (FireServer - subsequent shots e.g. shotgun pellets)
+local oldVisualFire = VisualProjectile.FireServer
+VisualProjectile.FireServer = newcclosure(function(self, direction, seed)
+    if not Aimbot.Settings.BulletAimbot then
+        return oldVisualFire(self, direction, seed)
+    end
+
+    local newDir, _ = getTargetDirection()
+    if newDir then
+        direction = newDir
+    end
+
+    return oldVisualFire(self, direction, seed)
+end)
+
+-- Hook ProjectileInflict to make sure damage registers on target
+local oldInflict = ProjectileInflict.FireServer
+ProjectileInflict.FireServer = newcclosure(function(self, hitPart, hitCFrame, seed, timestamp)
+    if not Aimbot.Settings.BulletAimbot then
+        return oldInflict(self, hitPart, hitCFrame, seed, timestamp)
+    end
+
+    local target = GetClosestPlayerInFOVThroughWalls()
+    if target then
+        local character = target.Parent or target
+        local hrp = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
+        if hrp then
+            hitPart = hrp
+            hitCFrame = hrp.CFrame:ToObjectSpace(hrp.CFrame)
         end
     end
-    return false
-end
 
-local function findBulletFunction(tbl)
-    for _, funcName in ipairs(FUNC_NAME_PATTERNS) do
-        local ok, val = pcall(function() return tbl[funcName] end)
-        if ok and type(val) == "function" then
-            return funcName
-        end
-    end
-    return nil
-end
-
-for _, v in pairs(getloadedmodules()) do
-    if not nameMatchesAny(v.Name, MODULE_NAME_PATTERNS) then continue end
-
-    local ok, result = pcall(require, v)
-    if not ok or type(result) ~= "table" then continue end
-
-    local funcName = findBulletFunction(result)
-    if funcName then
-        BulletModule = result
-        BulletFuncName = funcName
-        break
-    end
-end
-
-if not BulletModule then
-    for _, v in pairs(getloadedmodules()) do
-        local ok, result = pcall(require, v)
-        if not ok or type(result) ~= "table" then continue end
-
-        local funcName = findBulletFunction(result)
-        if funcName then
-            BulletModule = result
-            BulletFuncName = funcName
-            break
-        end
-    end
-end
-
-if BulletModule and BulletFuncName then
-    local isFiring = false
-    local original
-
-    original = hookfunction(BulletModule[BulletFuncName], newcclosure(function(...)
-        if not Aimbot.Settings.BulletAimbot then
-            return original(...)
-        end
-
-        if isFiring then
-            return original(...)
-        end
-
-        isFiring = true
-
-        local args = {...}
-        local target = GetClosestPlayerInFOVThroughWalls()
-
-        if target then
-            local targetPos
-            local character = target.Parent or target
-
-            if character:FindFirstChild("HumanoidRootPart") then
-                targetPos = character.HumanoidRootPart.Position
-            elseif character:FindFirstChild("Head") then
-                targetPos = character.Head.Position
-            elseif target:IsA("BasePart") then
-                targetPos = target.Position
-            end
-
-            if targetPos then
-                local direction = (Camera.CFrame.Position - targetPos).Unit
-                local adjustedPos = targetPos + (direction * 1.5)
-
-                for i, v in ipairs(args) do
-                    if typeof(v) == "Instance" and v:IsA("BasePart") then
-                        pcall(function()
-                            v.CanCollide = false
-                            v.CanTouch = false
-                            v.CFrame = CFrame.new(adjustedPos)
-                        end)
-                        break
-                    end
-
-                    if typeof(v) == "CFrame" then
-                        args[i] = CFrame.new(adjustedPos)
-                        break
-                    end
-
-                    if typeof(v) == "Vector3" then
-                        args[i] = adjustedPos
-                        break
-                    end
-                end
-            end
-        end
-
-        local result = table.pack(original(table.unpack(args)))
-        isFiring = false
-        return table.unpack(result)
-    end))
-else
-    warn("[NOX] Silent Aim: No bullet module found in this game — feature disabled")
-end
+    return oldInflict(self, hitPart, hitCFrame, seed, timestamp)
+end)
 
 ------------------------------------------------
 -- API
@@ -309,3 +262,4 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
