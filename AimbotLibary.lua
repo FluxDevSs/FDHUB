@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.9
+local Aimbot = {} -- v2.0
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -143,8 +143,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Replace the entire BULLET AIMBOT HOOK section with this:
-
 ------------------------------------------------
 -- BULLET AIMBOT HOOK (Direct Remote Hook)
 ------------------------------------------------
@@ -153,26 +151,31 @@ local FireProjectile = game.ReplicatedStorage.Remotes.FireProjectile
 local VisualProjectile = game.ReplicatedStorage.Remotes.VisualProjectile
 local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 
-local function getTargetDirection()
+local function getTargetInfo()
     local target = GetClosestPlayerInFOVThroughWalls()
-    if not target then return nil end
+    if not target then return nil, nil, nil end
 
-    local targetPos
     local character = target.Parent or target
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local head = character:FindFirstChild("Head")
 
-    if character:FindFirstChild("HumanoidRootPart") then
-        targetPos = character.HumanoidRootPart.Position
-    elseif character:FindFirstChild("Head") then
-        targetPos = character.Head.Position
-    elseif target:IsA("BasePart") then
-        targetPos = target.Position
-    end
-
-    if not targetPos then return nil, nil end
+    local hitPart = hrp or head or (target:IsA("BasePart") and target or nil)
+    if not hitPart then return nil, nil, nil end
 
     local camPos = workspace.CurrentCamera.CFrame.Position
-    local direction = (targetPos - camPos).Unit
-    return direction, targetPos
+    local hitPos = hitPart.Position
+
+    -- Direction from camera toward target
+    local direction = (hitPos - camPos).Unit
+
+    -- Hit position on the surface of the part facing the camera
+    local surfacePos = hitPos + (camPos - hitPos).Unit * (hitPart.Size.Magnitude / 2)
+
+    -- Replicate exactly what the game does:
+    -- v193 = v155.CFrame:ToObjectSpace(CFrame.new(v158))
+    local hitCFrame = hitPart.CFrame:ToObjectSpace(CFrame.new(surfacePos))
+
+    return direction, hitPart, hitCFrame
 end
 
 -- Hook FireProjectile (InvokeServer - first shot)
@@ -182,7 +185,7 @@ FireProjectile.InvokeServer = newcclosure(function(self, direction, seed, timest
         return oldInvoke(self, direction, seed, timestamp)
     end
 
-    local newDir, _ = getTargetDirection()
+    local newDir, _, _ = getTargetInfo()
     if newDir then
         direction = newDir
     end
@@ -190,14 +193,14 @@ FireProjectile.InvokeServer = newcclosure(function(self, direction, seed, timest
     return oldInvoke(self, direction, seed, timestamp)
 end)
 
--- Hook VisualProjectile (FireServer - subsequent shots e.g. shotgun pellets)
+-- Hook VisualProjectile (FireServer - pellets/subsequent shots)
 local oldVisualFire = VisualProjectile.FireServer
 VisualProjectile.FireServer = newcclosure(function(self, direction, seed)
     if not Aimbot.Settings.BulletAimbot then
         return oldVisualFire(self, direction, seed)
     end
 
-    local newDir, _ = getTargetDirection()
+    local newDir, _, _ = getTargetInfo()
     if newDir then
         direction = newDir
     end
@@ -205,21 +208,19 @@ VisualProjectile.FireServer = newcclosure(function(self, direction, seed)
     return oldVisualFire(self, direction, seed)
 end)
 
--- Hook ProjectileInflict to make sure damage registers on target
+-- Hook ProjectileInflict - this is what actually deals damage on the server
+-- Game code: v6:FireServer(v155, v193, v123, tick())
+-- v155 = hit part, v193 = v155.CFrame:ToObjectSpace(CFrame.new(hitPosition))
 local oldInflict = ProjectileInflict.FireServer
 ProjectileInflict.FireServer = newcclosure(function(self, hitPart, hitCFrame, seed, timestamp)
     if not Aimbot.Settings.BulletAimbot then
         return oldInflict(self, hitPart, hitCFrame, seed, timestamp)
     end
 
-    local target = GetClosestPlayerInFOVThroughWalls()
-    if target then
-        local character = target.Parent or target
-        local hrp = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
-        if hrp then
-            hitPart = hrp
-            hitCFrame = hrp.CFrame:ToObjectSpace(hrp.CFrame)
-        end
+    local _, newHitPart, newHitCFrame = getTargetInfo()
+    if newHitPart and newHitCFrame then
+        hitPart = newHitPart
+        hitCFrame = newHitCFrame
     end
 
     return oldInflict(self, hitPart, hitCFrame, seed, timestamp)
@@ -250,10 +251,6 @@ function Aimbot:SetEnabled(state)
 end
 
 function Aimbot:SetBulletAimbot(state)
-    if not BulletModule then
-        warn("[NOX] Silent Aim unavailable — no compatible bullet module found in this game")
-        return
-    end
     self.Settings.BulletAimbot = state
 end
 
@@ -262,4 +259,3 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
-
