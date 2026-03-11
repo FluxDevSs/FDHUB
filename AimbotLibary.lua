@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.4
+local Aimbot = {} -- v1.5
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -241,12 +241,12 @@ if BulletModule and BulletFuncName then
 
                 -- Some games pass a CFrame or Vector3 direction directly
                 if typeof(v) == "CFrame" then
-                    args[i] = CFrame.new(v.Position, target.Position)
+                    args[i] = CFrame.new(target.Position)  -- teleport to target
                     break
                 end
-
+                
                 if typeof(v) == "Vector3" then
-                    args[i] = (target.Position - Camera.CFrame.Position).Unit
+                    args[i] = target.Position  -- set position directly, not a direction unit vector
                     break
                 end
             end
@@ -297,3 +297,4 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
