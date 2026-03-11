@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.9
+local Aimbot = {} -- v3.0
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -50,20 +50,12 @@ end
 local function GetClosestPlayerInFOV()
     local closestPart = nil
     local shortestDistance = math.huge
-
-    local screenCenter = Vector2.new(
-        Camera.ViewportSize.X / 2,
-        Camera.ViewportSize.Y / 2
-    )
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            if Aimbot.Settings.TeamCheck and player.Team == LocalPlayer.Team then
-                continue
-            end
-            if Aimbot.Settings.AliveCheck and not IsAlive(player) then
-                continue
-            end
+            if Aimbot.Settings.TeamCheck and player.Team == LocalPlayer.Team then continue end
+            if Aimbot.Settings.AliveCheck and not IsAlive(player) then continue end
 
             local part = player.Character:FindFirstChild(Aimbot.Settings.AimPart)
             if not part then continue end
@@ -72,7 +64,6 @@ local function GetClosestPlayerInFOV()
             if not visible then continue end
 
             local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-
             if distance <= Aimbot.Settings.FOVRadius and distance < shortestDistance then
                 shortestDistance = distance
                 closestPart = part
@@ -86,27 +77,18 @@ end
 local function GetClosestPlayerInFOVThroughWalls()
     local closestPart = nil
     local shortestDistance = math.huge
-
-    local screenCenter = Vector2.new(
-        Camera.ViewportSize.X / 2,
-        Camera.ViewportSize.Y / 2
-    )
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            if Aimbot.Settings.TeamCheck and player.Team == LocalPlayer.Team then
-                continue
-            end
-            if Aimbot.Settings.AliveCheck and not IsAlive(player) then
-                continue
-            end
+            if Aimbot.Settings.TeamCheck and player.Team == LocalPlayer.Team then continue end
+            if Aimbot.Settings.AliveCheck and not IsAlive(player) then continue end
 
             local part = player.Character:FindFirstChild(Aimbot.Settings.AimPart)
             if not part then continue end
 
             local screenPos, _ = Camera:WorldToViewportPoint(part.Position)
             local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-
             if distance <= Aimbot.Settings.FOVRadius and distance < shortestDistance then
                 shortestDistance = distance
                 closestPart = part
@@ -118,11 +100,7 @@ local function GetClosestPlayerInFOVThroughWalls()
 end
 
 RunService.RenderStepped:Connect(function()
-    local screenCenter = Vector2.new(
-        Camera.ViewportSize.X / 2,
-        Camera.ViewportSize.Y / 2
-    )
-
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     Aimbot.FOVCircle.Position = screenCenter
     Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
     Aimbot.FOVCircle.Visible = Aimbot.Settings.FOVVisible
@@ -134,7 +112,6 @@ RunService.RenderStepped:Connect(function()
     if target then
         local camPos = Camera.CFrame.Position
         local aimCFrame = CFrame.new(camPos, target.Position)
-
         if Aimbot.Settings.Smoothness > 0 then
             Camera.CFrame = Camera.CFrame:Lerp(aimCFrame, Aimbot.Settings.Smoothness)
         else
@@ -149,6 +126,9 @@ end)
 
 local BulletModule = require(game.ReplicatedStorage.Modules.FPS.Bullet)
 local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
+
+-- Cache the target at fire time so namecall doesnt need to search
+local cachedTarget = nil
 
 if BulletModule and BulletModule.CreateBullet then
     local isFiring = false
@@ -168,6 +148,9 @@ if BulletModule and BulletModule.CreateBullet then
         local args = {...}
         local target = GetClosestPlayerInFOVThroughWalls()
 
+        -- Cache target for namecall hook to use
+        cachedTarget = target
+
         if target then
             local targetPos
             local character = target.Parent or target
@@ -183,17 +166,13 @@ if BulletModule and BulletModule.CreateBullet then
             if targetPos then
                 for i, v in ipairs(args) do
                     if typeof(v) == "Instance" and v:IsA("BasePart") then
-                        pcall(function()
-                            v.CFrame = CFrame.new(v.Position, targetPos)
-                        end)
+                        pcall(function() v.CFrame = CFrame.new(v.Position, targetPos) end)
                         break
                     end
-
                     if typeof(v) == "CFrame" then
                         args[i] = CFrame.new(v.Position, targetPos)
                         break
                     end
-
                     if typeof(v) == "Vector3" then
                         args[i] = (targetPos - Camera.CFrame.Position).Unit
                         break
@@ -202,49 +181,60 @@ if BulletModule and BulletModule.CreateBullet then
             end
         end
 
-        -- Get return values so RangedWeaponDefault doesnt crash
         local r1, r2, r3, r4 = original(...)
 
-        -- Fire coroutine with modified args, patching FireServer
-        -- for the duration of the bullet's RenderStepped loop
         coroutine.wrap(function()
-            -- Save and replace FireServer just for this bullet
-            local oldFire = ProjectileInflict.FireServer
-            ProjectileInflict.FireServer = function(self, hitPart, hitCFrame, seed, timestamp)
-                if not Aimbot.Settings.BulletAimbot then
-                    return oldFire(self, hitPart, hitCFrame, seed, timestamp)
-                end
-
-                local t = GetClosestPlayerInFOVThroughWalls()
-                if t then
-                    local char = t.Parent or t
-                    local newHitPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-                    if newHitPart then
-                        local ok, newHitCFrame = pcall(function()
-                            return newHitPart.CFrame:ToObjectSpace(CFrame.new(newHitPart.Position))
-                        end)
-                        if ok then
-                            return oldFire(self, newHitPart, newHitCFrame, seed, timestamp)
-                        end
-                    end
-                end
-                return oldFire(self, hitPart, hitCFrame, seed, timestamp)
-            end
-
             isFiring = true
             original(table.unpack(args))
             isFiring = false
-
-            -- Restore FireServer after bullet finishes
-            ProjectileInflict.FireServer = oldFire
+            cachedTarget = nil
         end)()
 
         isFiring = false
         return r1, r2, r3, r4
     end))
-else
-    warn("[NOX] Silent Aim: Could not hook CreateBullet")
 end
+
+-- Namecall hook ONLY for ProjectileInflict
+-- Uses cached target so it does zero work on any other remote
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+    -- CRITICAL: bail out instantly if not our remote
+    if rawequal(self, ProjectileInflict) == false then
+        return oldNamecall(self, ...)
+    end
+
+    local method = getnamecallmethod()
+    if method ~= "FireServer" then
+        return oldNamecall(self, ...)
+    end
+
+    if not Aimbot.Settings.BulletAimbot or not cachedTarget then
+        return oldNamecall(self, ...)
+    end
+
+    -- Use cached target - no searching needed here
+    local character = cachedTarget.Parent or cachedTarget
+    local head = character:FindFirstChild("Head")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local newHitPart = head or hrp
+
+    if not newHitPart then
+        return oldNamecall(self, ...)
+    end
+
+    local ok, newHitCFrame = pcall(function()
+        return newHitPart.CFrame:ToObjectSpace(CFrame.new(newHitPart.Position))
+    end)
+
+    if not ok then
+        return oldNamecall(self, ...)
+    end
+
+    local args = {...}
+    -- args[1]=hitPart, args[2]=hitCFrame, args[3]=seed, args[4]=timestamp
+    return oldNamecall(self, newHitPart, newHitCFrame, args[3], args[4])
+end))
 
 ------------------------------------------------
 -- API
