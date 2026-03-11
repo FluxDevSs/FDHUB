@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.5
+local Aimbot = {} -- v2.6
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -149,28 +149,21 @@ end)
 
 local BulletModule = require(game.ReplicatedStorage.Modules.FPS.Bullet)
 
-local function getTargetInfo()
+local function getTargetDirection()
     local target = GetClosestPlayerInFOVThroughWalls()
-    if not target then return nil, nil, nil end
+    if not target then return nil end
 
     local character = target.Parent or target
     local hrp = character:FindFirstChild("HumanoidRootPart")
     local head = character:FindFirstChild("Head")
 
     local hitPart = hrp or head or (target:IsA("BasePart") and target or nil)
-    if not hitPart then return nil, nil, nil end
+    if not hitPart then return nil end
 
     local camPos = workspace.CurrentCamera.CFrame.Position
     local hitPos = hitPart.Position
-    local direction = (hitPos - camPos).Unit
-    local surfacePos = hitPos + (camPos - hitPos).Unit * (hitPart.Size.Magnitude / 2)
 
-    local ok, hitCFrame = pcall(function()
-        return hitPart.CFrame:ToObjectSpace(CFrame.new(surfacePos))
-    end)
-    if not ok then return direction, hitPart, CFrame.new() end
-
-    return direction, hitPart, hitCFrame
+    return (hitPos - camPos).Unit
 end
 
 if BulletModule and BulletModule.CreateBullet then
@@ -189,11 +182,10 @@ if BulletModule and BulletModule.CreateBullet then
         isFiring = true
 
         local args = {...}
-        local direction, hitPart, hitCFrame = getTargetInfo()
+        local direction = getTargetDirection()
 
         if direction then
             for i, v in ipairs(args) do
-                -- p69 is the CFrame the game uses for bullet direction
                 if typeof(v) == "CFrame" then
                     args[i] = CFrame.new(v.Position, v.Position + direction)
                     break
@@ -205,9 +197,13 @@ if BulletModule and BulletModule.CreateBullet then
             end
         end
 
-        local result = table.pack(original(table.unpack(args)))
+        -- Wrap in coroutine to prevent crash from internal RenderStepped loop
+        coroutine.wrap(function()
+            original(table.unpack(args))
+        end)()
+
         isFiring = false
-        return table.unpack(result)
+        return
     end))
 else
     warn("[NOX] Silent Aim: Could not hook CreateBullet")
@@ -246,7 +242,3 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
-
-
-
-
