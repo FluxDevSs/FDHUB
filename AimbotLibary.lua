@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.1
+local Aimbot = {} -- v3.2
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -148,6 +148,7 @@ end)
 ------------------------------------------------
 
 local BulletModule = require(game.ReplicatedStorage.Modules.FPS.Bullet)
+local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 
 if BulletModule and BulletModule.CreateBullet then
     local isFiring = false
@@ -218,6 +219,44 @@ else
     warn("[NOX] Silent Aim: Could not hook CreateBullet")
 end
 
+-- Hook ProjectileInflict to make damage register on head through walls
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+    -- Exit immediately if not ProjectileInflict to prevent crash
+    if self ~= ProjectileInflict then
+        return oldNamecall(self, ...)
+    end
+
+    local method = getnamecallmethod()
+    if method ~= "FireServer" then
+        return oldNamecall(self, ...)
+    end
+
+    if not Aimbot.Settings.BulletAimbot then
+        return oldNamecall(self, ...)
+    end
+
+    local target = GetClosestPlayerInFOVThroughWalls()
+    if not target then
+        return oldNamecall(self, ...)
+    end
+
+    local character = target.Parent or target
+    local head = character:FindFirstChild("Head")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local hitPart = head or hrp
+    if not hitPart then
+        return oldNamecall(self, ...)
+    end
+
+    -- Replicate what the game does: v155.CFrame:ToObjectSpace(CFrame.new(v158))
+    local hitCFrame = hitPart.CFrame:ToObjectSpace(CFrame.new(hitPart.Position))
+
+    local args = {...}
+    -- args: hitPart, hitCFrame, seed, timestamp
+    return oldNamecall(self, hitPart, hitCFrame, args[3], args[4])
+end))
+
 ------------------------------------------------
 -- API
 ------------------------------------------------
@@ -251,7 +290,3 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
-
-
-
-
