@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.4
+local Aimbot = {} -- v2.5
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -144,16 +144,14 @@ RunService.RenderStepped:Connect(function()
 end)
 
 ------------------------------------------------
--- BULLET AIMBOT HOOK (Direct Remote Hook)
+-- BULLET AIMBOT HOOK
 ------------------------------------------------
 
-local FireProjectile = game.ReplicatedStorage.Remotes.FireProjectile
-local VisualProjectile = game.ReplicatedStorage.Remotes.VisualProjectile
-local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
+local BulletModule = require(game.ReplicatedStorage.Modules.FPS.Bullet)
 
 local function getTargetInfo()
-    local ok, target = pcall(GetClosestPlayerInFOVThroughWalls)
-    if not ok or not target then return nil, nil, nil end
+    local target = GetClosestPlayerInFOVThroughWalls()
+    if not target then return nil, nil, nil end
 
     local character = target.Parent or target
     local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -164,59 +162,56 @@ local function getTargetInfo()
 
     local camPos = workspace.CurrentCamera.CFrame.Position
     local hitPos = hitPart.Position
-
     local direction = (hitPos - camPos).Unit
     local surfacePos = hitPos + (camPos - hitPos).Unit * (hitPart.Size.Magnitude / 2)
 
-    local ok2, hitCFrame = pcall(function()
+    local ok, hitCFrame = pcall(function()
         return hitPart.CFrame:ToObjectSpace(CFrame.new(surfacePos))
     end)
-    if not ok2 then return direction, hitPart, CFrame.new() end
+    if not ok then return direction, hitPart, CFrame.new() end
 
     return direction, hitPart, hitCFrame
 end
 
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-    local method = getnamecallmethod()
+if BulletModule and BulletModule.CreateBullet then
+    local isFiring = false
+    local original
 
-    -- Early exit if not one of our remotes - prevents crash
-    if self ~= FireProjectile and self ~= VisualProjectile and self ~= ProjectileInflict then
-        return oldNamecall(self, ...)
-    end
-
-    -- Early exit if bullet aimbot is off
-    if not Aimbot.Settings.BulletAimbot then
-        return oldNamecall(self, ...)
-    end
-
-    local args = {...}
-
-    if self == FireProjectile and method == "InvokeServer" then
-        local newDir, _, _ = getTargetInfo()
-        if newDir then
-            args[1] = newDir
+    original = hookfunction(BulletModule.CreateBullet, newcclosure(function(...)
+        if not Aimbot.Settings.BulletAimbot then
+            return original(...)
         end
-        return oldNamecall(self, table.unpack(args))
-    end
 
-    if self == VisualProjectile and method == "FireServer" then
-        local newDir, _, _ = getTargetInfo()
-        if newDir then
-            args[1] = newDir
+        if isFiring then
+            return original(...)
         end
-        return oldNamecall(self, table.unpack(args))
-    end
 
-    if self == ProjectileInflict and method == "FireServer" then
-        local _, newHitPart, newHitCFrame = getTargetInfo()
-        if newHitPart and newHitCFrame then
-            return oldNamecall(self, newHitPart, newHitCFrame, args[3], args[4])
+        isFiring = true
+
+        local args = {...}
+        local direction, hitPart, hitCFrame = getTargetInfo()
+
+        if direction then
+            for i, v in ipairs(args) do
+                -- p69 is the CFrame the game uses for bullet direction
+                if typeof(v) == "CFrame" then
+                    args[i] = CFrame.new(v.Position, v.Position + direction)
+                    break
+                end
+                if typeof(v) == "Vector3" then
+                    args[i] = direction
+                    break
+                end
+            end
         end
-    end
 
-    return oldNamecall(self, ...)
-end))
+        local result = table.pack(original(table.unpack(args)))
+        isFiring = false
+        return table.unpack(result)
+    end))
+else
+    warn("[NOX] Silent Aim: Could not hook CreateBullet")
+end
 
 ------------------------------------------------
 -- API
@@ -251,6 +246,7 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
 
 
 
