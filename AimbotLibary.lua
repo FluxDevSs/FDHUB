@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.9
+local Aimbot = {} -- v3.0
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -171,9 +171,9 @@ if BulletModule and BulletModule.CreateBullet then
             local targetPos
             local character = target.Parent or target
 
-            if character:FindFirstChild("HumanoidRootPart") then
+            if character:FindFirstChild("Head") then
                 targetPos = character.HumanoidRootPart.Position
-            elseif character:FindFirstChild("Head") then
+            elseif character:FindFirstChild("HumanoidRootPart") then
                 targetPos = character.Head.Position
             elseif target:IsA("BasePart") then
                 targetPos = target.Position
@@ -251,5 +251,6 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
 
 
