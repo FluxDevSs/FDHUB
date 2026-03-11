@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.3
+local Aimbot = {} -- v3.4
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -150,6 +150,7 @@ end)
 local BulletModule = require(game.ReplicatedStorage.Modules.FPS.Bullet)
 local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 
+-- Hook CreateBullet to redirect bullet direction
 if BulletModule and BulletModule.CreateBullet then
     local isFiring = false
     local original
@@ -220,45 +221,35 @@ else
 end
 
 -- Hook ProjectileInflict to make damage register on head through walls
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-    if not rawequal(self, ProjectileInflict) then
-        return oldNamecall(self, ...)
-    end
-
-    local method = getnamecallmethod()
-    if method ~= "FireServer" then
-        return oldNamecall(self, ...)
-    end
-
+local oldFireServer = hookfunction(ProjectileInflict.FireServer, newcclosure(function(self, hitPart, hitCFrame, seed, timestamp)
     if not Aimbot.Settings.BulletAimbot then
-        return oldNamecall(self, ...)
+        return oldFireServer(self, hitPart, hitCFrame, seed, timestamp)
     end
 
     local target = GetClosestPlayerInFOVThroughWalls()
     if not target then
-        return oldNamecall(self, ...)
+        return oldFireServer(self, hitPart, hitCFrame, seed, timestamp)
     end
 
     local character = target.Parent or target
     local head = character:FindFirstChild("Head")
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    local hitPart = head or hrp
-    if not hitPart then
-        return oldNamecall(self, ...)
+    local newHitPart = head or hrp
+    if not newHitPart then
+        return oldFireServer(self, hitPart, hitCFrame, seed, timestamp)
     end
 
-    local ok, hitCFrame = pcall(function()
-        return hitPart.CFrame:ToObjectSpace(CFrame.new(hitPart.Position))
+    local ok, newHitCFrame = pcall(function()
+        return newHitPart.CFrame:ToObjectSpace(CFrame.new(newHitPart.Position))
     end)
     if not ok then
-        return oldNamecall(self, ...)
+        return oldFireServer(self, hitPart, hitCFrame, seed, timestamp)
     end
 
-    local args = {...}
-    return oldNamecall(self, hitPart, hitCFrame, args[3], args[4])
+    -- Keep original seed and timestamp, only replace hitPart and hitCFrame
+    return oldFireServer(self, newHitPart, newHitCFrame, seed, timestamp)
 end))
--- 
+
 ------------------------------------------------
 -- API
 ------------------------------------------------
@@ -292,4 +283,3 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
-
