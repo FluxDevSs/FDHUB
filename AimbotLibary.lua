@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.2
+local Aimbot = {} -- v2.3
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -152,8 +152,8 @@ local VisualProjectile = game.ReplicatedStorage.Remotes.VisualProjectile
 local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 
 local function getTargetInfo()
-    local target = GetClosestPlayerInFOVThroughWalls()
-    if not target then return nil, nil, nil end
+    local ok, target = pcall(GetClosestPlayerInFOVThroughWalls)
+    if not ok or not target then return nil, nil, nil end
 
     local character = target.Parent or target
     local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -167,7 +167,11 @@ local function getTargetInfo()
 
     local direction = (hitPos - camPos).Unit
     local surfacePos = hitPos + (camPos - hitPos).Unit * (hitPart.Size.Magnitude / 2)
-    local hitCFrame = hitPart.CFrame:ToObjectSpace(CFrame.new(surfacePos))
+
+    local ok2, hitCFrame = pcall(function()
+        return hitPart.CFrame:ToObjectSpace(CFrame.new(surfacePos))
+    end)
+    if not ok2 then return direction, hitPart, CFrame.new() end
 
     return direction, hitPart, hitCFrame
 end
@@ -199,14 +203,15 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         return oldNamecall(self, table.unpack(args))
     end
 
-    -- Hook ProjectileInflict (RemoteEvent:FireServer)
+-- Hook ProjectileInflict (RemoteEvent:FireServer)
     if self == ProjectileInflict and method == "FireServer" then
         local _, newHitPart, newHitCFrame = getTargetInfo()
         if newHitPart and newHitCFrame then
-            args[1] = newHitPart
-            args[2] = newHitCFrame
+            -- args[1] is hitPart, args[2] is hitCFrame
+            -- make sure we're not overwriting seed/timestamp
+            return oldNamecall(self, newHitPart, newHitCFrame, args[3], args[4])
         end
-        return oldNamecall(self, table.unpack(args))
+        return oldNamecall(self, ...)
     end
 
     return oldNamecall(self, ...)
@@ -244,4 +249,5 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
 
