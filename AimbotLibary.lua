@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.0
+local Aimbot = {} -- v3.1
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -236,6 +236,38 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
     return oldNamecall(self, newHitPart, newHitCFrame, args[3], args[4])
 end))
 
+-- Hook workspace raycast to pass through all player characters
+local oldRaycast
+oldRaycast = hookfunction(workspace.Raycast, newcclosure(function(self, origin, direction, params)
+    if not Aimbot.Settings.BulletAimbot or not cachedTarget then
+        return oldRaycast(self, origin, direction, params)
+    end
+
+    -- Add all enemy characters to the filter so bullet passes through walls
+    -- by making the raycast ignore the target's character entirely
+    local result = oldRaycast(self, origin, direction, params)
+
+    if result then
+        local hit = result.Instance
+        -- If raycast hit a wall/part that is NOT a player character, 
+        -- check if target is behind it and spoof a hit on them instead
+        local hitCharacter = hit and hit:FindFirstAncestorOfClass("Model")
+        local isPlayer = hitCharacter and Players:GetPlayerFromCharacter(hitCharacter)
+
+        if not isPlayer then
+            -- Wall was hit - spoof result to return target head instead
+            local character = cachedTarget.Parent or cachedTarget
+            local head = character:FindFirstChild("Head")
+            if head then
+                -- Return nil so bullet keeps travelling (passes through wall)
+                return nil
+            end
+        end
+    end
+
+    return result
+end))
+
 ------------------------------------------------
 -- API
 ------------------------------------------------
@@ -269,3 +301,4 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
