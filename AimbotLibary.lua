@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.7
+local Aimbot = {} -- v1.8
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -145,18 +145,15 @@ end)
 
 ------------------------------------------------
 -- BULLET AIMBOT HOOK
--- Searches loaded modules broadly for any bullet/projectile creation function
 ------------------------------------------------
 
 local BulletModule = nil
 local BulletFuncName = nil
 
--- Names to try when searching loaded modules (case-insensitive check below)
 local MODULE_NAME_PATTERNS = {
     "bullet", "projectile", "proj", "gun", "shoot", "fire", "ballistic"
 }
 
--- Function key names that suggest bullet creation
 local FUNC_NAME_PATTERNS = {
     "CreateBullet", "FireBullet", "Shoot", "Fire", "NewBullet",
     "SpawnBullet", "CreateProjectile", "FireProjectile"
@@ -182,7 +179,6 @@ local function findBulletFunction(tbl)
     return nil
 end
 
--- Search all loaded modules
 for _, v in pairs(getloadedmodules()) do
     if not nameMatchesAny(v.Name, MODULE_NAME_PATTERNS) then continue end
 
@@ -197,7 +193,6 @@ for _, v in pairs(getloadedmodules()) do
     end
 end
 
--- If still not found, do a broader scan of ALL loaded modules for bullet-like functions
 if not BulletModule then
     for _, v in pairs(getloadedmodules()) do
         local ok, result = pcall(require, v)
@@ -220,21 +215,20 @@ if BulletModule and BulletFuncName then
         if not Aimbot.Settings.BulletAimbot then
             return original(...)
         end
-    
+
         if isFiring then
             return original(...)
         end
-    
+
         isFiring = true
-    
+
         local args = {...}
         local target = GetClosestPlayerInFOVThroughWalls()
-    
-       if target then
-            -- Get a reliable hit position (HumanoidRootPart > Head > the part itself)
+
+        if target then
             local targetPos
             local character = target.Parent or target
-            
+
             if character:FindFirstChild("HumanoidRootPart") then
                 targetPos = character.HumanoidRootPart.Position
             elseif character:FindFirstChild("Head") then
@@ -242,35 +236,34 @@ if BulletModule and BulletFuncName then
             elseif target:IsA("BasePart") then
                 targetPos = target.Position
             end
-        
+
             if targetPos then
+                local direction = (Camera.CFrame.Position - targetPos).Unit
+                local adjustedPos = targetPos + (direction * 1.5)
+
                 for i, v in ipairs(args) do
-        
                     if typeof(v) == "Instance" and v:IsA("BasePart") then
                         pcall(function()
                             v.CanCollide = false
                             v.CanTouch = false
-                            v.CFrame = CFrame.new(targetPos)
+                            v.CFrame = CFrame.new(adjustedPos)
                         end)
                         break
                     end
-        
+
                     if typeof(v) == "CFrame" then
-                        local offset = (targetPos - Camera.CFrame.Position).Unit * 0.5
-                        args[i] = CFrame.new(targetPos - offset)
+                        args[i] = CFrame.new(adjustedPos)
                         break
                     end
-        
+
                     if typeof(v) == "Vector3" then
-                        local offset = (targetPos - Camera.CFrame.Position).Unit * 0.5
-                        args[i] = targetPos - offset
+                        args[i] = adjustedPos
                         break
                     end
-        
                 end
             end
         end
-    
+
         local result = table.pack(original(table.unpack(args)))
         isFiring = false
         return table.unpack(result)
@@ -316,6 +309,3 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
-
-
-
