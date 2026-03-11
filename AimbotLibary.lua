@@ -1,4 +1,4 @@
-local Aimbot = {} -- v1.5
+local Aimbot = {} -- v1.6
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -220,38 +220,44 @@ if BulletModule and BulletFuncName then
         if not Aimbot.Settings.BulletAimbot then
             return original(...)
         end
-
+    
         if isFiring then
             return original(...)
         end
-
+    
         isFiring = true
-
+    
         local args = {...}
         local target = GetClosestPlayerInFOVThroughWalls()
-
+    
         if target then
             for i, v in ipairs(args) do
+    
+                -- THIS IS WHERE YOU PUT IT (replaces old BasePart block)
                 if typeof(v) == "Instance" and v:IsA("BasePart") then
                     pcall(function()
-                        v.CFrame = CFrame.new(v.Position, target.Position)
+                        v.CanCollide = false
+                        v.CanTouch = false
+                        v.CFrame = CFrame.new(target.Position)
                     end)
                     break
                 end
-
-                -- Some games pass a CFrame or Vector3 direction directly
+    
                 if typeof(v) == "CFrame" then
-                    args[i] = CFrame.new(target.Position)  -- teleport to target
+                    local offset = (target.Position - Camera.CFrame.Position).Unit * 0.5
+                    args[i] = CFrame.new(target.Position - offset)
                     break
                 end
-                
+    
                 if typeof(v) == "Vector3" then
-                    args[i] = target.Position  -- set position directly, not a direction unit vector
+                    local offset = (target.Position - Camera.CFrame.Position).Unit * 0.5
+                    args[i] = target.Position - offset
                     break
                 end
+    
             end
         end
-
+    
         local result = table.pack(original(table.unpack(args)))
         isFiring = false
         return table.unpack(result)
@@ -297,4 +303,5 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
 
