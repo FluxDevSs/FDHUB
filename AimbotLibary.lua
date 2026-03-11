@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.4
+local Aimbot = {} -- v2.9
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -150,7 +150,6 @@ end)
 local BulletModule = require(game.ReplicatedStorage.Modules.FPS.Bullet)
 local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 
--- Hook CreateBullet to redirect bullet direction
 if BulletModule and BulletModule.CreateBullet then
     local isFiring = false
     local original
@@ -206,11 +205,38 @@ if BulletModule and BulletModule.CreateBullet then
         -- Get return values so RangedWeaponDefault doesnt crash
         local r1, r2, r3, r4 = original(...)
 
-        -- Fire again in coroutine with modified args for actual bullet direction
+        -- Fire coroutine with modified args, patching FireServer
+        -- for the duration of the bullet's RenderStepped loop
         coroutine.wrap(function()
+            -- Save and replace FireServer just for this bullet
+            local oldFire = ProjectileInflict.FireServer
+            ProjectileInflict.FireServer = function(self, hitPart, hitCFrame, seed, timestamp)
+                if not Aimbot.Settings.BulletAimbot then
+                    return oldFire(self, hitPart, hitCFrame, seed, timestamp)
+                end
+
+                local t = GetClosestPlayerInFOVThroughWalls()
+                if t then
+                    local char = t.Parent or t
+                    local newHitPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                    if newHitPart then
+                        local ok, newHitCFrame = pcall(function()
+                            return newHitPart.CFrame:ToObjectSpace(CFrame.new(newHitPart.Position))
+                        end)
+                        if ok then
+                            return oldFire(self, newHitPart, newHitCFrame, seed, timestamp)
+                        end
+                    end
+                end
+                return oldFire(self, hitPart, hitCFrame, seed, timestamp)
+            end
+
             isFiring = true
             original(table.unpack(args))
             isFiring = false
+
+            -- Restore FireServer after bullet finishes
+            ProjectileInflict.FireServer = oldFire
         end)()
 
         isFiring = false
@@ -219,36 +245,6 @@ if BulletModule and BulletModule.CreateBullet then
 else
     warn("[NOX] Silent Aim: Could not hook CreateBullet")
 end
-
--- Hook ProjectileInflict to make damage register on head through walls
-local oldFireServer = hookfunction(ProjectileInflict.FireServer, newcclosure(function(self, hitPart, hitCFrame, seed, timestamp)
-    if not Aimbot.Settings.BulletAimbot then
-        return oldFireServer(self, hitPart, hitCFrame, seed, timestamp)
-    end
-
-    local target = GetClosestPlayerInFOVThroughWalls()
-    if not target then
-        return oldFireServer(self, hitPart, hitCFrame, seed, timestamp)
-    end
-
-    local character = target.Parent or target
-    local head = character:FindFirstChild("Head")
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    local newHitPart = head or hrp
-    if not newHitPart then
-        return oldFireServer(self, hitPart, hitCFrame, seed, timestamp)
-    end
-
-    local ok, newHitCFrame = pcall(function()
-        return newHitPart.CFrame:ToObjectSpace(CFrame.new(newHitPart.Position))
-    end)
-    if not ok then
-        return oldFireServer(self, hitPart, hitCFrame, seed, timestamp)
-    end
-
-    -- Keep original seed and timestamp, only replace hitPart and hitCFrame
-    return oldFireServer(self, newHitPart, newHitCFrame, seed, timestamp)
-end))
 
 ------------------------------------------------
 -- API
