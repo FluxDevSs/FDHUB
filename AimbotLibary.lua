@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.8
+local Aimbot = {} -- v2.9
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -149,23 +149,6 @@ end)
 
 local BulletModule = require(game.ReplicatedStorage.Modules.FPS.Bullet)
 
-local function getTargetDirection()
-    local target = GetClosestPlayerInFOVThroughWalls()
-    if not target then return nil end
-
-    local character = target.Parent or target
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    local head = character:FindFirstChild("Head")
-
-    local hitPart = hrp or head or (target:IsA("BasePart") and target or nil)
-    if not hitPart then return nil end
-
-    local camPos = workspace.CurrentCamera.CFrame.Position
-    local hitPos = hitPart.Position
-
-    return (hitPos - camPos).Unit
-end
-
 if BulletModule and BulletModule.CreateBullet then
     local isFiring = false
     local original
@@ -182,24 +165,46 @@ if BulletModule and BulletModule.CreateBullet then
         isFiring = true
 
         local args = {...}
-        local direction = getTargetDirection()
+        local target = GetClosestPlayerInFOVThroughWalls()
 
-        if direction then
-            for i, v in ipairs(args) do
-                if typeof(v) == "CFrame" then
-                    -- p69 in the module - game uses v118 = p69.CFrame.LookVector
-                    -- so we need LookVector to point at target
-                    -- CFrame.new(pos, pos+dir) makes LookVector = dir
-                    local currentPos = v.Position
-                    args[i] = CFrame.new(currentPos, currentPos + direction)
-                    -- dont break, keep scanning in case there are multiple CFrames
-                    -- we want the LAST CFrame which is p69 (the gun orientation)
+        if target then
+            local targetPos
+            local character = target.Parent or target
+
+            if character:FindFirstChild("HumanoidRootPart") then
+                targetPos = character.HumanoidRootPart.Position
+            elseif character:FindFirstChild("Head") then
+                targetPos = character.Head.Position
+            elseif target:IsA("BasePart") then
+                targetPos = target.Position
+            end
+
+            if targetPos then
+                for i, v in ipairs(args) do
+                    if typeof(v) == "Instance" and v:IsA("BasePart") then
+                        pcall(function()
+                            v.CFrame = CFrame.new(v.Position, targetPos)
+                        end)
+                        break
+                    end
+
+                    if typeof(v) == "CFrame" then
+                        args[i] = CFrame.new(v.Position, targetPos)
+                        break
+                    end
+
+                    if typeof(v) == "Vector3" then
+                        args[i] = (targetPos - Camera.CFrame.Position).Unit
+                        break
+                    end
                 end
             end
         end
 
+        -- Get return values so RangedWeaponDefault doesnt crash
         local r1, r2, r3, r4 = original(...)
 
+        -- Fire again in coroutine with modified args for actual bullet direction
         coroutine.wrap(function()
             isFiring = true
             original(table.unpack(args))
@@ -246,4 +251,5 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
 
