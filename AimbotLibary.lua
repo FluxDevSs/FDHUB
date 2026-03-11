@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.7
+local Aimbot = {} -- v2.8
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -187,18 +187,17 @@ if BulletModule and BulletModule.CreateBullet then
         if direction then
             for i, v in ipairs(args) do
                 if typeof(v) == "CFrame" then
-                    args[i] = CFrame.new(v.Position, v.Position + direction)
-                    break
-                end
-                if typeof(v) == "Vector3" then
-                    args[i] = direction
-                    break
+                    -- p69 in the module - game uses v118 = p69.CFrame.LookVector
+                    -- so we need LookVector to point at target
+                    -- CFrame.new(pos, pos+dir) makes LookVector = dir
+                    local currentPos = v.Position
+                    args[i] = CFrame.new(currentPos, currentPos + direction)
+                    -- dont break, keep scanning in case there are multiple CFrames
+                    -- we want the LAST CFrame which is p69 (the gun orientation)
                 end
             end
         end
 
-        -- Call original normally first without direction to get return values
-        -- Then fire again in coroutine with our direction for the actual bullet
         local r1, r2, r3, r4 = original(...)
 
         coroutine.wrap(function()
@@ -208,8 +207,6 @@ if BulletModule and BulletModule.CreateBullet then
         end)()
 
         isFiring = false
-
-        -- Return original recoil values so RangedWeaponDefault doesn't crash
         return r1, r2, r3, r4
     end))
 else
