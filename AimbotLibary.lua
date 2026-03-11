@@ -1,4 +1,4 @@
-local Aimbot = {} -- v2.6
+local Aimbot = {} -- v2.7
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -197,13 +197,20 @@ if BulletModule and BulletModule.CreateBullet then
             end
         end
 
-        -- Wrap in coroutine to prevent crash from internal RenderStepped loop
+        -- Call original normally first without direction to get return values
+        -- Then fire again in coroutine with our direction for the actual bullet
+        local r1, r2, r3, r4 = original(...)
+
         coroutine.wrap(function()
+            isFiring = true
             original(table.unpack(args))
+            isFiring = false
         end)()
 
         isFiring = false
-        return
+
+        -- Return original recoil values so RangedWeaponDefault doesn't crash
+        return r1, r2, r3, r4
     end))
 else
     warn("[NOX] Silent Aim: Could not hook CreateBullet")
@@ -242,3 +249,4 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
