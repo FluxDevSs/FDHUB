@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.6
+local Aimbot = {} -- v3.7
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -122,12 +122,13 @@ end)
 
 ------------------------------------------------
 -- BULLET AIMBOT
--- Based on decompiled FPS.Bullet module:
--- v6:FireServer(v155, v155.CFrame:ToObjectSpace(CFrame.new(v158)), v123, tick())
--- v155 = hit part, v158 = world hit position, v123 = seed
+-- Since hookfunction on CreateBullet doesnt work on this executor build,
+-- we hook workspace.Raycast instead. The bullet module uses workspace:Raycast
+-- for hit detection. We spoof the result to always return the target's
+-- HeadTopHitBox, which causes the game to naturally call ProjectileInflict
+-- with the correct seed and timestamp.
 ------------------------------------------------
 
-local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 local cachedTarget = nil
 
 RunService.Heartbeat:Connect(function()
@@ -137,6 +138,53 @@ RunService.Heartbeat:Connect(function()
         cachedTarget = nil
     end
 end)
+
+local oldRaycast
+oldRaycast = hookfunction(workspace.Raycast, newcclosure(function(self, origin, direction, params)
+    if not Aimbot.Settings.BulletAimbot or not cachedTarget then
+        return oldRaycast(self, origin, direction, params)
+    end
+
+    local character = cachedTarget.Parent or cachedTarget
+    if not character then
+        return oldRaycast(self, origin, direction, params)
+    end
+
+    local hitPart = character:FindFirstChild("HeadTopHitBox")
+        or character:FindFirstChild("Head")
+        or character:FindFirstChild("HumanoidRootPart")
+
+    if not hitPart then
+        return oldRaycast(self, origin, direction, params)
+    end
+
+    -- Run the real raycast first
+    local result = oldRaycast(self, origin, direction, params)
+
+    -- If it already hit our target naturally, dont touch it
+    if result and result.Instance then
+        local hitModel = result.Instance:FindFirstAncestorOfClass("Model")
+        if hitModel == character then
+            return result
+        end
+    end
+
+    -- Spoof: make the bullet think it hit the target's hitbox
+    -- We return a fake result table pointing at the hitPart
+    local fakeResult = {
+        Instance = hitPart,
+        Position = hitPart.Position,
+        Normal   = (origin - hitPart.Position).Unit,
+        Material = Enum.Material.SmoothPlastic,
+        Distance = (hitPart.Position - origin).Magnitude,
+    }
+
+    return fakeResult
+end))
+
+-- Safety net namecall hook — the raycast spoof should handle everything
+-- but this ensures the CFrame format is always correct if ProjectileInflict fires
+local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
@@ -153,33 +201,31 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         return oldNamecall(self, ...)
     end
 
-    local character = cachedTarget.Parent or cachedTarget
-    if not character then
-        return oldNamecall(self, ...)
+    local args = {...}
+    local hitPart = args[1]
+
+    -- Check if raycast spoof already resolved to a valid enemy player part
+    if hitPart and hitPart:IsDescendantOf(workspace) then
+        local hitModel = hitPart:FindFirstAncestorOfClass("Model")
+        local hitPlayer = hitModel and Players:GetPlayerFromCharacter(hitModel)
+        if hitPlayer and hitPlayer ~= LocalPlayer then
+            -- Already correct, pass through untouched
+            return oldNamecall(self, ...)
+        end
     end
 
-    -- Match exactly what the game does for humanoid hits:
-    -- it picks the raycast hit part (e.g. HeadTopHitBox) then does
-    -- hitPart.CFrame:ToObjectSpace(CFrame.new(worldHitPosition))
-    -- We spoof worldHitPosition as the center of the hitPart
-    local hitPart = character:FindFirstChild("HeadTopHitBox")
+    -- Fallback: manually spoof to cached target
+    local character = cachedTarget.Parent or cachedTarget
+    if not character then return oldNamecall(self, ...) end
+
+    local newHitPart = character:FindFirstChild("HeadTopHitBox")
         or character:FindFirstChild("Head")
         or character:FindFirstChild("HumanoidRootPart")
 
-    if not hitPart then
-        return oldNamecall(self, ...)
-    end
+    if not newHitPart then return oldNamecall(self, ...) end
 
-    -- Replicate: v155.CFrame:ToObjectSpace(CFrame.new(v158))
-    -- where v158 = hitPart.Position (center of the target part)
-    local hitCFrame = hitPart.CFrame:ToObjectSpace(CFrame.new(hitPart.Position))
-
-    local args = {...}
-    warn("[NOX] Spoofing hit to:", hitPart:GetFullName())
-    warn("[NOX] hitCFrame:", tostring(hitCFrame))
-    warn("[NOX] seed:", tostring(args[3]))
-    warn("[NOX] timestamp:", tostring(args[4]))
-    return oldNamecall(self, hitPart, hitCFrame, args[3], args[4])
+    local newHitCFrame = newHitPart.CFrame:ToObjectSpace(CFrame.new(newHitPart.Position))
+    return oldNamecall(self, newHitPart, newHitCFrame, args[3], args[4])
 end))
 
 ------------------------------------------------
