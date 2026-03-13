@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.1
+local Aimbot = {} -- v3.2
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -29,7 +29,7 @@ Aimbot.FOVCircle.Radius = Aimbot.Settings.FOVRadius
 Aimbot.FOVCircle.Color = Color3.fromRGB(255,255,255)
 Aimbot.FOVCircle.Transparency = 1
 
-UserInputService.InputBegan:Connect(function(input,gp)
+UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         holdingRightClick = true
@@ -121,96 +121,23 @@ RunService.RenderStepped:Connect(function()
 end)
 
 ------------------------------------------------
--- BULLET AIMBOT HOOK
+-- BULLET AIMBOT
 ------------------------------------------------
 
-local BulletModule = require(game.ReplicatedStorage.Modules.FPS.Bullet)
 local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
-
 local cachedTarget = nil
 
--- DEBUG: Check if BulletModule loaded correctly
-warn("[NOX] BulletModule =", tostring(BulletModule))
-warn("[NOX] CreateBullet =", tostring(BulletModule and BulletModule.CreateBullet))
-
-if BulletModule and BulletModule.CreateBullet then
-    local isFiring = false
-    local original
-
-    original = hookfunction(BulletModule.CreateBullet, newcclosure(function(...)
-        -- DEBUG: Log every time the hook fires
-        local args = {...}
-        warn("[NOX] CreateBullet fired! arg count =", #args)
-        for i, v in ipairs(args) do
-            warn("[NOX] arg["..i.."] typeof="..typeof(v).." value="..tostring(v))
-        end
-
-        if not Aimbot.Settings.BulletAimbot then
-            return original(table.unpack(args))
-        end
-
-        if isFiring then
-            return original(table.unpack(args))
-        end
-
-        isFiring = true
-
-        local target = GetClosestPlayerInFOVThroughWalls()
-        cachedTarget = target
-
-        if target then
-            local targetPos
-            local character = target.Parent or target
-
-            if character:FindFirstChild("Head") then
-                targetPos = character.Head.Position
-            elseif character:FindFirstChild("HumanoidRootPart") then
-                targetPos = character.HumanoidRootPart.Position
-            elseif target:IsA("BasePart") then
-                targetPos = target.Position
-            end
-
-            if targetPos then
-                warn("[NOX] Redirecting bullet to target at", tostring(targetPos))
-                for i, v in ipairs(args) do
-                    if typeof(v) == "CFrame" then
-                        args[i] = CFrame.new(v.Position, targetPos)
-                        warn("[NOX] Modified CFrame arg at index", i)
-                        break
-                    elseif typeof(v) == "Vector3" then
-                        args[i] = (targetPos - Camera.CFrame.Position).Unit
-                        warn("[NOX] Modified Vector3 arg at index", i)
-                        break
-                    elseif typeof(v) == "Instance" and v:IsA("BasePart") then
-                        pcall(function() v.CFrame = CFrame.new(v.Position, targetPos) end)
-                        warn("[NOX] Modified BasePart CFrame at index", i)
-                        break
-                    end
-                end
-            else
-                warn("[NOX] No targetPos found on target character")
-            end
-        else
-            warn("[NOX] No target in FOV for bullet redirect")
-        end
-
-        local results = table.pack(original(table.unpack(args)))
-
-        isFiring = false
+RunService.Heartbeat:Connect(function()
+    if Aimbot.Settings.BulletAimbot then
+        cachedTarget = GetClosestPlayerInFOVThroughWalls()
+    else
         cachedTarget = nil
+    end
+end)
 
-        return table.unpack(results)
-    end))
-
-    warn("[NOX] Hook attached, original =", tostring(original))
-else
-    warn("[NOX] FAILED - BulletModule or CreateBullet is nil, cannot hook")
-end
-
--- Namecall hook for ProjectileInflict
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-    if rawequal(self, ProjectileInflict) == false then
+    if not rawequal(self, ProjectileInflict) then
         return oldNamecall(self, ...)
     end
 
@@ -225,7 +152,7 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
 
     local character = cachedTarget.Parent or cachedTarget
     local head = character:FindFirstChild("Head")
-    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local hrp  = character:FindFirstChild("HumanoidRootPart")
     local newHitPart = head or hrp
 
     if not newHitPart then
@@ -241,34 +168,7 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
     end
 
     local args = {...}
-    warn("[NOX] ProjectileInflict intercepted, spoofing hit to", newHitPart.Name)
     return oldNamecall(self, newHitPart, newHitCFrame, args[3], args[4])
-end))
-
--- Raycast hook
-local oldRaycast
-oldRaycast = hookfunction(workspace.Raycast, newcclosure(function(self, origin, direction, params)
-    if not Aimbot.Settings.BulletAimbot or not cachedTarget then
-        return oldRaycast(self, origin, direction, params)
-    end
-
-    local result = oldRaycast(self, origin, direction, params)
-
-    if result then
-        local hit = result.Instance
-        local hitCharacter = hit and hit:FindFirstAncestorOfClass("Model")
-        local isPlayer = hitCharacter and Players:GetPlayerFromCharacter(hitCharacter)
-
-        if not isPlayer then
-            local character = cachedTarget.Parent or cachedTarget
-            local head = character:FindFirstChild("Head")
-            if head then
-                return nil
-            end
-        end
-    end
-
-    return result
 end))
 
 ------------------------------------------------
