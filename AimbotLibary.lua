@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.5
+local Aimbot = {} -- v3.6
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -175,7 +175,10 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
     local hitCFrame = hitPart.CFrame:ToObjectSpace(CFrame.new(hitPart.Position))
 
     local args = {...}
-    -- arg[1] = hit part, arg[2] = object space hit CFrame, arg[3] = seed, arg[4] = timestamp
+    warn("[NOX] Spoofing hit to:", hitPart:GetFullName())
+    warn("[NOX] hitCFrame:", tostring(hitCFrame))
+    warn("[NOX] seed:", tostring(args[3]))
+    warn("[NOX] timestamp:", tostring(args[4]))
     return oldNamecall(self, hitPart, hitCFrame, args[3], args[4])
 end))
 
