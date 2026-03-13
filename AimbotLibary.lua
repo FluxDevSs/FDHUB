@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.1
+local Aimbot = {} -- v3.2
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -138,23 +138,21 @@ if BulletModule and BulletModule.CreateBullet then
         if not Aimbot.Settings.BulletAimbot then
             return original(...)
         end
-
+    
         if isFiring then
             return original(...)
         end
-
+    
         isFiring = true
-
+    
         local args = {...}
         local target = GetClosestPlayerInFOVThroughWalls()
-
-        -- Cache target for namecall hook to use
         cachedTarget = target
-
+    
         if target then
             local targetPos
             local character = target.Parent or target
-
+    
             if character:FindFirstChild("Head") then
                 targetPos = character.Head.Position
             elseif character:FindFirstChild("HumanoidRootPart") then
@@ -162,36 +160,30 @@ if BulletModule and BulletModule.CreateBullet then
             elseif target:IsA("BasePart") then
                 targetPos = target.Position
             end
-
+    
             if targetPos then
                 for i, v in ipairs(args) do
-                    if typeof(v) == "Instance" and v:IsA("BasePart") then
-                        pcall(function() v.CFrame = CFrame.new(v.Position, targetPos) end)
-                        break
-                    end
                     if typeof(v) == "CFrame" then
                         args[i] = CFrame.new(v.Position, targetPos)
                         break
-                    end
-                    if typeof(v) == "Vector3" then
+                    elseif typeof(v) == "Vector3" then
                         args[i] = (targetPos - Camera.CFrame.Position).Unit
+                        break
+                    elseif typeof(v) == "Instance" and v:IsA("BasePart") then
+                        pcall(function() v.CFrame = CFrame.new(v.Position, targetPos) end)
                         break
                     end
                 end
             end
         end
-
-        local r1, r2, r3, r4 = original(...)
-
-        coroutine.wrap(function()
-            isFiring = true
-            original(table.unpack(args))
-            isFiring = false
-            cachedTarget = nil
-        end)()
-
+    
+        -- Call with MODIFIED args, not original (...)
+        local results = table.pack(original(table.unpack(args)))
+    
         isFiring = false
-        return r1, r2, r3, r4
+        cachedTarget = nil
+    
+        return table.unpack(results)
     end))
 end
 
@@ -301,4 +293,5 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
+
 
