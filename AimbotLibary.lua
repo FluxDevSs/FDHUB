@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.4
+local Aimbot = {} -- v3.5
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -122,6 +122,9 @@ end)
 
 ------------------------------------------------
 -- BULLET AIMBOT
+-- Based on decompiled FPS.Bullet module:
+-- v6:FireServer(v155, v155.CFrame:ToObjectSpace(CFrame.new(v158)), v123, tick())
+-- v155 = hit part, v158 = world hit position, v123 = seed
 ------------------------------------------------
 
 local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
@@ -155,7 +158,10 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         return oldNamecall(self, ...)
     end
 
-    -- Find the hitbox — game uses HeadTopHitBox, fall back to Head, then HumanoidRootPart
+    -- Match exactly what the game does for humanoid hits:
+    -- it picks the raycast hit part (e.g. HeadTopHitBox) then does
+    -- hitPart.CFrame:ToObjectSpace(CFrame.new(worldHitPosition))
+    -- We spoof worldHitPosition as the center of the hitPart
     local hitPart = character:FindFirstChild("HeadTopHitBox")
         or character:FindFirstChild("Head")
         or character:FindFirstChild("HumanoidRootPart")
@@ -164,10 +170,13 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         return oldNamecall(self, ...)
     end
 
+    -- Replicate: v155.CFrame:ToObjectSpace(CFrame.new(v158))
+    -- where v158 = hitPart.Position (center of the target part)
+    local hitCFrame = hitPart.CFrame:ToObjectSpace(CFrame.new(hitPart.Position))
+
     local args = {...}
-    -- arg[1] = hit part, arg[2] = hit CFrame in object space, arg[3] = seed, arg[4] = timestamp
-    -- CFrame.new() = identity = center of the part in object space
-    return oldNamecall(self, hitPart, CFrame.new(), args[3], args[4])
+    -- arg[1] = hit part, arg[2] = object space hit CFrame, arg[3] = seed, arg[4] = timestamp
+    return oldNamecall(self, hitPart, hitCFrame, args[3], args[4])
 end))
 
 ------------------------------------------------
