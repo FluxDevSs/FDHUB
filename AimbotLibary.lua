@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.2
+local Aimbot = {} -- v3.3
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -151,24 +151,25 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
     end
 
     local character = cachedTarget.Parent or cachedTarget
-    local head = character:FindFirstChild("Head")
-    local hrp  = character:FindFirstChild("HumanoidRootPart")
-    local newHitPart = head or hrp
-
-    if not newHitPart then
+    if not character then
         return oldNamecall(self, ...)
     end
 
-    local ok, newHitCFrame = pcall(function()
-        return newHitPart.CFrame:ToObjectSpace(CFrame.new(newHitPart.Position))
-    end)
+    -- Find the hitbox part — game uses HeadTopHitBox, fall back to Head, then HumanoidRootPart
+    local hitPart = character:FindFirstChild("HeadTopHitBox")
+        or character:FindFirstChild("Head")
+        or character:FindFirstChild("HumanoidRootPart")
 
-    if not ok then
+    if not hitPart then
         return oldNamecall(self, ...)
     end
+
+    -- Build a hit CFrame at the center of the hitbox
+    local hitCFrame = hitPart.CFrame
 
     local args = {...}
-    return oldNamecall(self, newHitPart, newHitCFrame, args[3], args[4])
+    -- arg[1] = hit part, arg[2] = hit CFrame, arg[3] = seed, arg[4] = timestamp
+    return oldNamecall(self, hitPart, hitCFrame, args[3], args[4])
 end))
 
 ------------------------------------------------
