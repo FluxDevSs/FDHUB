@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.2
+local Aimbot = {} -- v3.1
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -127,32 +127,41 @@ end)
 local BulletModule = require(game.ReplicatedStorage.Modules.FPS.Bullet)
 local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 
--- Cache the target at fire time so namecall doesnt need to search
 local cachedTarget = nil
+
+-- DEBUG: Check if BulletModule loaded correctly
+warn("[NOX] BulletModule =", tostring(BulletModule))
+warn("[NOX] CreateBullet =", tostring(BulletModule and BulletModule.CreateBullet))
 
 if BulletModule and BulletModule.CreateBullet then
     local isFiring = false
     local original
 
     original = hookfunction(BulletModule.CreateBullet, newcclosure(function(...)
-        if not Aimbot.Settings.BulletAimbot then
-            return original(...)
-        end
-    
-        if isFiring then
-            return original(...)
-        end
-    
-        isFiring = true
-    
+        -- DEBUG: Log every time the hook fires
         local args = {...}
+        warn("[NOX] CreateBullet fired! arg count =", #args)
+        for i, v in ipairs(args) do
+            warn("[NOX] arg["..i.."] typeof="..typeof(v).." value="..tostring(v))
+        end
+
+        if not Aimbot.Settings.BulletAimbot then
+            return original(table.unpack(args))
+        end
+
+        if isFiring then
+            return original(table.unpack(args))
+        end
+
+        isFiring = true
+
         local target = GetClosestPlayerInFOVThroughWalls()
         cachedTarget = target
-    
+
         if target then
             local targetPos
             local character = target.Parent or target
-    
+
             if character:FindFirstChild("Head") then
                 targetPos = character.Head.Position
             elseif character:FindFirstChild("HumanoidRootPart") then
@@ -160,38 +169,47 @@ if BulletModule and BulletModule.CreateBullet then
             elseif target:IsA("BasePart") then
                 targetPos = target.Position
             end
-    
+
             if targetPos then
+                warn("[NOX] Redirecting bullet to target at", tostring(targetPos))
                 for i, v in ipairs(args) do
                     if typeof(v) == "CFrame" then
                         args[i] = CFrame.new(v.Position, targetPos)
+                        warn("[NOX] Modified CFrame arg at index", i)
                         break
                     elseif typeof(v) == "Vector3" then
                         args[i] = (targetPos - Camera.CFrame.Position).Unit
+                        warn("[NOX] Modified Vector3 arg at index", i)
                         break
                     elseif typeof(v) == "Instance" and v:IsA("BasePart") then
                         pcall(function() v.CFrame = CFrame.new(v.Position, targetPos) end)
+                        warn("[NOX] Modified BasePart CFrame at index", i)
                         break
                     end
                 end
+            else
+                warn("[NOX] No targetPos found on target character")
             end
+        else
+            warn("[NOX] No target in FOV for bullet redirect")
         end
-    
-        -- Call with MODIFIED args, not original (...)
+
         local results = table.pack(original(table.unpack(args)))
-    
+
         isFiring = false
         cachedTarget = nil
-    
+
         return table.unpack(results)
     end))
+
+    warn("[NOX] Hook attached, original =", tostring(original))
+else
+    warn("[NOX] FAILED - BulletModule or CreateBullet is nil, cannot hook")
 end
 
--- Namecall hook ONLY for ProjectileInflict
--- Uses cached target so it does zero work on any other remote
+-- Namecall hook for ProjectileInflict
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-    -- CRITICAL: bail out instantly if not our remote
     if rawequal(self, ProjectileInflict) == false then
         return oldNamecall(self, ...)
     end
@@ -205,7 +223,6 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         return oldNamecall(self, ...)
     end
 
-    -- Use cached target - no searching needed here
     local character = cachedTarget.Parent or cachedTarget
     local head = character:FindFirstChild("Head")
     local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -224,34 +241,28 @@ oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
     end
 
     local args = {...}
-    -- args[1]=hitPart, args[2]=hitCFrame, args[3]=seed, args[4]=timestamp
+    warn("[NOX] ProjectileInflict intercepted, spoofing hit to", newHitPart.Name)
     return oldNamecall(self, newHitPart, newHitCFrame, args[3], args[4])
 end))
 
--- Hook workspace raycast to pass through all player characters
+-- Raycast hook
 local oldRaycast
 oldRaycast = hookfunction(workspace.Raycast, newcclosure(function(self, origin, direction, params)
     if not Aimbot.Settings.BulletAimbot or not cachedTarget then
         return oldRaycast(self, origin, direction, params)
     end
 
-    -- Add all enemy characters to the filter so bullet passes through walls
-    -- by making the raycast ignore the target's character entirely
     local result = oldRaycast(self, origin, direction, params)
 
     if result then
         local hit = result.Instance
-        -- If raycast hit a wall/part that is NOT a player character, 
-        -- check if target is behind it and spoof a hit on them instead
         local hitCharacter = hit and hit:FindFirstAncestorOfClass("Model")
         local isPlayer = hitCharacter and Players:GetPlayerFromCharacter(hitCharacter)
 
         if not isPlayer then
-            -- Wall was hit - spoof result to return target head instead
             local character = cachedTarget.Parent or cachedTarget
             local head = character:FindFirstChild("Head")
             if head then
-                -- Return nil so bullet keeps travelling (passes through wall)
                 return nil
             end
         end
@@ -293,5 +304,3 @@ function Aimbot:GetTarget()
 end
 
 return Aimbot
-
-
