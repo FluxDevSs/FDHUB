@@ -1,4 +1,4 @@
-local Aimbot = {} -- v3.1
+local Aimbot = {} -- v3.2
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -131,68 +131,127 @@ local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 local cachedTarget = nil
 
 if BulletModule and BulletModule.CreateBullet then
+    warn("[NOX] CreateBullet found, hooking...")
     local isFiring = false
     local original
 
-    original = hookfunction(BulletModule.CreateBullet, newcclosure(function(...)
-        if not Aimbot.Settings.BulletAimbot then
-            return original(...)
-        end
+    -- Try hookfunction on the module reference first
+    local hookSuccess = false
+    pcall(function()
+        original = hookfunction(BulletModule.CreateBullet, newcclosure(function(...)
+            hookSuccess = true -- will be set if hook fires
+            if not Aimbot.Settings.BulletAimbot then return original(...) end
+            if isFiring then return original(...) end
+            isFiring = true
+            warn("[NOX] CreateBullet fired!")
 
-        if isFiring then
-            return original(...)
-        end
-
-        isFiring = true
-
-        local args = {...}
-        local target = GetClosestPlayerInFOVThroughWalls()
-
-        -- Cache target for namecall hook to use
-        cachedTarget = target
-
-        if target then
-            local targetPos
-            local character = target.Parent or target
-
-            if character:FindFirstChild("Head") then
-                targetPos = character.Head.Position
-            elseif character:FindFirstChild("HumanoidRootPart") then
-                targetPos = character.HumanoidRootPart.Position
-            elseif target:IsA("BasePart") then
-                targetPos = target.Position
+            local args = {...}
+            for i, v in ipairs(args) do
+                warn("[NOX] arg["..i.."] =", typeof(v))
             end
 
-            if targetPos then
-                for i, v in ipairs(args) do
-                    if typeof(v) == "Instance" and v:IsA("BasePart") then
-                        pcall(function() v.CFrame = CFrame.new(v.Position, targetPos) end)
-                        break
-                    end
-                    if typeof(v) == "CFrame" then
-                        args[i] = CFrame.new(v.Position, targetPos)
-                        break
-                    end
-                    if typeof(v) == "Vector3" then
-                        args[i] = (targetPos - Camera.CFrame.Position).Unit
-                        break
+            local target = GetClosestPlayerInFOVThroughWalls()
+            cachedTarget = target
+
+            if target then
+                local targetPos
+                local character = target.Parent or target
+                if character:FindFirstChild("Head") then
+                    targetPos = character.Head.Position
+                elseif character:FindFirstChild("HumanoidRootPart") then
+                    targetPos = character.HumanoidRootPart.Position
+                elseif target:IsA("BasePart") then
+                    targetPos = target.Position
+                end
+
+                if targetPos then
+                    for i, v in ipairs(args) do
+                        if typeof(v) == "Instance" and v:IsA("BasePart") then
+                            pcall(function() v.CFrame = CFrame.new(v.Position, targetPos) end)
+                            break
+                        end
+                        if typeof(v) == "CFrame" then
+                            args[i] = CFrame.new(v.Position, targetPos)
+                            break
+                        end
+                        if typeof(v) == "Vector3" then
+                            args[i] = (targetPos - Camera.CFrame.Position).Unit
+                            break
+                        end
                     end
                 end
             end
-        end
 
-        local r1, r2, r3, r4 = original(...)
-
-        coroutine.wrap(function()
-            isFiring = true
-            original(table.unpack(args))
+            local r1, r2, r3, r4 = original(...)
+            coroutine.wrap(function()
+                isFiring = true
+                original(table.unpack(args))
+                isFiring = false
+                cachedTarget = nil
+            end)()
             isFiring = false
-            cachedTarget = nil
-        end)()
+            return r1, r2, r3, r4
+        end))
+    end)
 
-        isFiring = false
-        return r1, r2, r3, r4
-    end))
+    -- Also scan getgc for the actual live function in case module ref is stale
+    task.delay(2, function()
+        if hookSuccess then return end
+        warn("[NOX] Module hook didnt fire, scanning getgc for CreateBullet...")
+        for _, v in pairs(getgc(true)) do
+            if type(v) == "table" then
+                local ok2, fn = pcall(function() return rawget(v, "CreateBullet") end)
+                if ok2 and type(fn) == "function" and fn ~= BulletModule.CreateBullet then
+                    warn("[NOX] Found alternate CreateBullet in gc, hooking that too")
+                    pcall(function()
+                        local orig2
+                        orig2 = hookfunction(fn, newcclosure(function(...)
+                            if not Aimbot.Settings.BulletAimbot then return orig2(...) end
+                            if isFiring then return orig2(...) end
+                            isFiring = true
+                            warn("[NOX] GC CreateBullet fired!")
+
+                            local args = {...}
+                            local target = GetClosestPlayerInFOVThroughWalls()
+                            cachedTarget = target
+
+                            if target then
+                                local targetPos
+                                local character = target.Parent or target
+                                if character:FindFirstChild("Head") then
+                                    targetPos = character.Head.Position
+                                elseif character:FindFirstChild("HumanoidRootPart") then
+                                    targetPos = character.HumanoidRootPart.Position
+                                end
+                                if targetPos then
+                                    for i, v2 in ipairs(args) do
+                                        if typeof(v2) == "CFrame" then
+                                            args[i] = CFrame.new(v2.Position, targetPos)
+                                            break
+                                        end
+                                        if typeof(v2) == "Vector3" then
+                                            args[i] = (targetPos - Camera.CFrame.Position).Unit
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+
+                            local r1, r2, r3, r4 = orig2(...)
+                            coroutine.wrap(function()
+                                isFiring = true
+                                orig2(table.unpack(args))
+                                isFiring = false
+                                cachedTarget = nil
+                            end)()
+                            isFiring = false
+                            return r1, r2, r3, r4
+                        end))
+                    end)
+                end
+            end
+        end
+    end)
 end
 
 -- Namecall hook ONLY for ProjectileInflict
