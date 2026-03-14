@@ -120,6 +120,21 @@ end)
 local ProjectileInflict = game.ReplicatedStorage.Remotes.ProjectileInflict
 local cachedTarget = nil
 
+-- Add this BEFORE the makeHook calls, shoot once and check console
+task.delay(3, function()
+    for _, v in pairs(getgc(true)) do
+        if type(v) == "table" then
+            local ok, fn = pcall(function() return rawget(v, "CreateBullet") end)
+            if ok and type(fn) == "function" then
+                warn("[NOX] Found CreateBullet in table, same as module?", fn == BulletModule.CreateBullet, "table keys:")
+                for k, _ in pairs(v) do
+                    warn("[NOX]   key:", k)
+                end
+            end
+        end
+    end
+end)
+
 local function makeHook(orig)
     local isFiring = false
     local original
