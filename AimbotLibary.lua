@@ -1,4 +1,4 @@
-local Aimbot = {} -- v4.0
+local Aimbot = {} -- v4.1
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -93,6 +93,21 @@ local function GetClosestPlayerInFOVThroughWalls()
                 shortestDistance = distance
                 closestPart = part
             end
+        end
+    end
+
+    -- NPCs in AiZones
+    for _, npc in ipairs(AiZones:GetDescendants()) do
+        if not npc:IsA("Model") then continue end
+        local humanoid = npc:FindFirstChildOfClass("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then continue end
+        local part = npc:FindFirstChild(Aimbot.Settings.AimPart) or npc:FindFirstChild("Head")
+        if not part then continue end
+        local screenPos, _ = Camera:WorldToViewportPoint(part.Position)
+        local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+        if distance <= Aimbot.Settings.FOVRadius and distance < shortestDistance then
+            shortestDistance = distance
+            closestPart = part
         end
     end
 
