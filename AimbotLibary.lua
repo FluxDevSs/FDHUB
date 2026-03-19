@@ -1,4 +1,4 @@
-local Aimbot = {} -- v4.1
+local Aimbot = {} -- v4.2
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -6,6 +6,9 @@ local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+
+-- Add this near the top of the Aimbot lib, after the locals
+local AiZones = workspace:FindFirstChild("AiZones")
 
 local holdingRightClick = false
 
