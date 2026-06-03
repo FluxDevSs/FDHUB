@@ -1,376 +1,1157 @@
-local Module = {}
+-- UILibrary.lua
+-- Full Roblox Luau UI Library
+-- Put this inside a ModuleScript named "UILibrary"
 
-local MonsterData = {
+local UILibrary = {}
 
-    -- Existing
-    {
-        Sea = "First",
-        Min = 1,
-        Max = 9,
-        Ms = "Bandit",
-        NameQuest = "BanditQuest1",
-        QuestLv = 1,
-        NameMon = "Bandit",
-        CFrameQ = CFrame.new(1060.938,16.455,1547.784),
-        CFrameMon = CFrame.new(1038.553,41.296,1576.509)
-    },
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
-    {
-        Sea = "First",
-        Min = 10,
-        Max = 14,
-        Ms = "Monkey",
-        NameQuest = "JungleQuest",
-        QuestLv = 1,
-        NameMon = "Monkey",
-        CFrameQ = CFrame.new(-1601.6553955078,36.85213470459,153.38809204102),
-        CFrameMon = CFrame.new(-1448.1446533203,50.851993560791,63.60718536377)
-    },
+local LocalPlayer = Players.LocalPlayer
 
-    {
-        Sea = "First",
-        Min = 15,
-        Max = 29,
-        Ms = "Gorilla",
-        NameQuest = "JungleQuest",
-        QuestLv = 2,
-        NameMon = "Gorilla",
-        CFrameQ = CFrame.new(-1601.6553955078,36.85213470459,153.38809204102),
-        CFrameMon = CFrame.new(-1142.6488037109,40.462348937988,-515.39227294922)
-    },
+local DEFAULT_THEME = {
+	Background = Color3.fromRGB(22, 22, 28),
+	BackgroundDark = Color3.fromRGB(16, 16, 21),
+	BackgroundLight = Color3.fromRGB(31, 31, 39),
 
-    -- Pirate
-    {
-        Sea = "First",
-        Min = 30,
-        Max = 39,
-        Ms = "Pirate",
-        NameQuest = "BuggyQuest1",
-        QuestLv = 1,
-        NameMon = "Pirate",
-        CFrameQ = CFrame.new(-1140.1761474609,4.752049446106,3827.4057617188),
-        CFrameMon = CFrame.new(-1201.0881347656,40.628940582275,3857.5966796875)
-    },
+	Accent = Color3.fromRGB(120, 90, 255),
+	AccentDark = Color3.fromRGB(90, 65, 210),
 
-    -- Brute
-    {
-        Sea = "First",
-        Min = 40,
-        Max = 59,
-        Ms = "Brute",
-        NameQuest = "BuggyQuest1",
-        QuestLv = 2,
-        NameMon = "Brute",
-        CFrameQ = CFrame.new(-1140.1761474609,4.752049446106,3827.4057617188),
-        CFrameMon = CFrame.new(-1387.5324707031,24.592035293579,4100.9575195313)
-    },
+	Text = Color3.fromRGB(245, 245, 255),
+	TextMuted = Color3.fromRGB(160, 160, 175),
 
-    -- Desert Bandit
-    {
-        Sea = "First",
-        Min = 60,
-        Max = 74,
-        Ms = "Desert Bandit",
-        NameQuest = "DesertQuest",
-        QuestLv = 1,
-        NameMon = "Desert Bandit",
-        CFrameQ = CFrame.new(896.51721191406,6.4384617805481,4390.1494140625),
-        CFrameMon = CFrame.new(984.99896240234,16.109552383423,4417.91015625)
-    },
-
-    -- Desert Officer
-    {
-        Sea = "First",
-        Min = 75,
-        Max = 89,
-        Ms = "Desert Officer",
-        NameQuest = "DesertQuest",
-        QuestLv = 2,
-        NameMon = "Desert Officer",
-        CFrameQ = CFrame.new(896.51721191406,6.4384617805481,4390.1494140625),
-        CFrameMon = CFrame.new(1547.1510009766,14.452038764954,4381.8002929688)
-    },
-
-    -- Snow Bandit
-    {
-        Sea = "First",
-        Min = 90,
-        Max = 99,
-        Ms = "Snow Bandit",
-        NameQuest = "SnowQuest",
-        QuestLv = 1,
-        NameMon = "Snow Bandit",
-        CFrameQ = CFrame.new(1386.8073730469,87.272789001465,-1298.3576660156),
-        CFrameMon = CFrame.new(1356.3028564453,105.76865386963,-1328.2418212891)
-    },
-
-    -- Snowman
-    {
-        Sea = "First",
-        Min = 100,
-        Max = 119,
-        Ms = "Snowman",
-        NameQuest = "SnowQuest",
-        QuestLv = 2,
-        NameMon = "Snowman",
-        CFrameQ = CFrame.new(1386.8073730469,87.272789001465,-1298.3576660156),
-        CFrameMon = CFrame.new(1218.7956542969,138.01184082031,-1488.0262451172)
-    },
-
-    -- Chief Petty Officer
-    {
-        Sea = "First",
-        Min = 120,
-        Max = 149,
-        Ms = "Chief Petty Officer",
-        NameQuest = "MarineQuest2",
-        QuestLv = 1,
-        NameMon = "Chief Petty Officer",
-        CFrameQ = CFrame.new(-5035.49609375,28.677835464478,4324.1840820313),
-        CFrameMon = CFrame.new(-4931.1552734375,65.793113708496,4121.8393554688)
-    },
-
-    -- Sky Bandit
-    {
-        Sea = "First",
-        Min = 150,
-        Max = 174,
-        Ms = "Sky Bandit",
-        NameQuest = "SkyQuest",
-        QuestLv = 1,
-        NameMon = "Sky Bandit",
-        CFrameQ = CFrame.new(-4842.1372070313,717.69543457031,-2623.0483398438),
-        CFrameMon = CFrame.new(-4955.6411132813,365.46365356445,-2908.1865234375)
-    },
-
-    -- Dark Master
-    {
-        Sea = "First",
-        Min = 175,
-        Max = 189,
-        Ms = "Dark Master",
-        NameQuest = "SkyQuest",
-        QuestLv = 2,
-        NameMon = "Dark Master",
-        CFrameQ = CFrame.new(-4842.1372070313,717.69543457031,-2623.0483398438),
-        CFrameMon = CFrame.new(-5148.1650390625,439.04571533203,-2332.9611816406)
-    },
-
-    -- Prisoner
-    {
-        Sea = "First",
-        Min = 190,
-        Max = 209,
-        Ms = "Prisoner",
-        NameQuest = "PrisonerQuest",
-        QuestLv = 1,
-        NameMon = "Prisoner",
-        CFrameQ = CFrame.new(5310.60547,0.350014925,474.946594,0.0175017118,0,0.999846935,0,1,0,-0.999846935,0,0.0175017118),
-        CFrameMon = CFrame.new(4937.31885,0.332031399,649.574524,0.694649816,0,-0.719348073,0,1,0,0.719348073,0,0.694649816)
-    },
-
-    -- Dangerous Prisoner
-    {
-        Sea = "First",
-        Min = 210,
-        Max = 249,
-        Ms = "Dangerous Prisoner",
-        NameQuest = "PrisonerQuest",
-        QuestLv = 2,
-        NameMon = "Dangerous Prisoner",
-        CFrameQ = CFrame.new(5310.60547,0.350014925,474.946594,0.0175017118,0,0.999846935,0,1,0,-0.999846935,0,0.0175017118),
-        CFrameMon = CFrame.new(5099.6626,0.351562679,1055.7583,0.898906827,0,-0.438139856,0,1,0,0.438139856,0,0.898906827)
-    },
-
-    -- Toga Warrior
-    {
-        Sea = "First",
-        Min = 250,
-        Max = 274,
-        Ms = "Toga Warrior",
-        NameQuest = "ColosseumQuest",
-        QuestLv = 1,
-        NameMon = "Toga Warrior",
-        CFrameQ = CFrame.new(-1577.7890625,7.4151420593262,-2984.4838867188),
-        CFrameMon = CFrame.new(-1872.5166015625,49.080215454102,-2913.810546875)
-    },
-
-    -- Gladiator
-    {
-        Sea = "First",
-        Min = 275,
-        Max = 299,
-        Ms = "Gladiator",
-        NameQuest = "ColosseumQuest",
-        QuestLv = 2,
-        NameMon = "Gladiator",
-        CFrameQ = CFrame.new(-1577.7890625,7.4151420593262,-2984.4838867188),
-        CFrameMon = CFrame.new(-1521.3740234375,81.203170776367,-3066.3139648438)
-    },
-
-    -- Military Soldier
-    {
-        Sea = "First",
-        Min = 300,
-        Max = 324,
-        Ms = "Military Soldier",
-        NameQuest = "MagmaQuest",
-        QuestLv = 1,
-        NameMon = "Military Soldier",
-        CFrameQ = CFrame.new(-5316.1157226563,12.262831687927,8517.00390625),
-        CFrameMon = CFrame.new(-5369.0004882813,61.24352645874,8556.4921875)
-    },
-
-    -- Military Spy
-    {
-        Sea = "First",
-        Min = 325,
-        Max = 374,
-        Ms = "Military Spy",
-        NameQuest = "MagmaQuest",
-        QuestLv = 2,
-        NameMon = "Military Spy",
-        CFrameQ = CFrame.new(-5316.1157226563,12.262831687927,8517.00390625),
-        CFrameMon = CFrame.new(-5787.00293,75.8262634,8651.69922,0.838590562,0,-0.544762194,0,1,0,0.544762194,0,0.838590562)
-    },
-
-    -- Fishman Warrior
-    {
-        Sea = "First",
-        Min = 375,
-        Max = 399,
-        Ms = "Fishman Warrior",
-        NameQuest = "FishmanQuest",
-        QuestLv = 1,
-        NameMon = "Fishman Warrior",
-        CFrameQ = CFrame.new(61122.65234375,18.497442245483,1569.3997802734),
-        CFrameMon = CFrame.new(60844.10546875,98.462875366211,1298.3985595703),
-        Entrance = Vector3.new(61163.8515625,11.6796875,1819.7841796875)
-    },
-
-    -- Fishman Commando
-    {
-        Sea = "First",
-        Min = 400,
-        Max = 449,
-        Ms = "Fishman Commando",
-        NameQuest = "FishmanQuest",
-        QuestLv = 2,
-        NameMon = "Fishman Commando",
-        CFrameQ = CFrame.new(61122.65234375,18.497442245483,1569.3997802734),
-        CFrameMon = CFrame.new(61738.3984375,64.207321166992,1433.8375244141),
-        Entrance = Vector3.new(61163.8515625,11.6796875,1819.7841796875)
-    },
-
-    -- God's Guard
-    {
-        Sea = "First",
-        Min = 450,
-        Max = 474,
-        Ms = "God's Guard",
-        NameQuest = "SkyExp1Quest",
-        QuestLv = 1,
-        NameMon = "God's Guard",
-        CFrameQ = CFrame.new(-4721.8603515625,845.30297851563,-1953.8489990234),
-        CFrameMon = CFrame.new(-4628.0498046875,866.92877197266,-1931.2352294922),
-        Entrance = Vector3.new(-4607.82275,872.54248,-1667.55688)
-    },
-
-    -- Shanda
-    {
-        Sea = "First",
-        Min = 475,
-        Max = 524,
-        Ms = "Shanda",
-        NameQuest = "SkyExp1Quest",
-        QuestLv = 2,
-        NameMon = "Shanda",
-        CFrameQ = CFrame.new(-7863.1596679688,5545.5190429688,-378.42266845703),
-        CFrameMon = CFrame.new(-7685.1474609375,5601.0751953125,-441.38876342773),
-        Entrance = Vector3.new(-7894.6176757813,5547.1416015625,-380.29119873047)
-    },
-
-    -- Royal Squad
-    {
-        Sea = "First",
-        Min = 525,
-        Max = 549,
-        Ms = "Royal Squad",
-        NameQuest = "SkyExp2Quest",
-        QuestLv = 1,
-        NameMon = "Royal Squad",
-        CFrameQ = CFrame.new(-7903.3828125,5635.9897460938,-1410.923828125),
-        CFrameMon = CFrame.new(-7654.2514648438,5637.1079101563,-1407.7550048828)
-    },
-
-    -- Royal Soldier
-    {
-        Sea = "First",
-        Min = 550,
-        Max = 624,
-        Ms = "Royal Soldier",
-        NameQuest = "SkyExp2Quest",
-        QuestLv = 2,
-        NameMon = "Royal Soldier",
-        CFrameQ = CFrame.new(-7903.3828125,5635.9897460938,-1410.923828125),
-        CFrameMon = CFrame.new(-7760.4106445313,5679.9077148438,-1884.8112792969)
-    },
-
-    -- Galley Pirate
-    {
-        Sea = "First",
-        Min = 625,
-        Max = 649,
-        Ms = "Galley Pirate",
-        NameQuest = "FountainQuest",
-        QuestLv = 1,
-        NameMon = "Galley Pirate",
-        CFrameQ = CFrame.new(5258.2788085938,38.526931762695,4050.044921875),
-        CFrameMon = CFrame.new(5557.1684570313,152.32717895508,3998.7758789063)
-    },
-
-    -- Galley Captain
-    {
-        Sea = "First",
-        Min = 650,
-        Max = math.huge,
-        Ms = "Galley Captain",
-        NameQuest = "FountainQuest",
-        QuestLv = 2,
-        NameMon = "Galley Captain",
-        CFrameQ = CFrame.new(5258.2788085938,38.526931762695,4050.044921875),
-        CFrameMon = CFrame.new(5677.6772460938,92.786109924316,4966.6323242188)
-    },
+	Stroke = Color3.fromRGB(55, 55, 70),
+	Success = Color3.fromRGB(80, 220, 130),
+	Error = Color3.fromRGB(255, 90, 90),
 }
 
-local First_Sea = false
-local Second_Sea = false
-local Third_Sea = false
+local function mergeTheme(customTheme)
+	local theme = {}
 
-local placeId = game.PlaceId
+	for key, value in pairs(DEFAULT_THEME) do
+		theme[key] = value
+	end
 
-if placeId == 2753915549 then
-    First_Sea = true
-elseif placeId == 4442272183 then
-    Second_Sea = true
-elseif placeId == 7449423635 then
-    Third_Sea = true
+	if typeof(customTheme) == "table" then
+		for key, value in pairs(customTheme) do
+			theme[key] = value
+		end
+	end
+
+	return theme
 end
 
-function module.CheckLevel()
-    local Lv = player:WaitForChild("Data"):WaitForChild("Level").Value
-    for _, data in ipairs(MonsterData) do
-        local correctSea =
-            (First_Sea and data.Sea == "First") or
-            (Second_Sea and data.Sea == "Second") or
-            (Third_Sea and data.Sea == "Third")
-        if correctSea and Lv >= data.Min and Lv <= data.Max then
-            return data
-        end
-    end
+local function create(className, properties, children)
+	local instance = Instance.new(className)
 
-    return nil
+	for property, value in pairs(properties or {}) do
+		instance[property] = value
+	end
+
+	for _, child in ipairs(children or {}) do
+		child.Parent = instance
+	end
+
+	return instance
 end
 
+local function corner(radius)
+	return create("UICorner", {
+		CornerRadius = UDim.new(0, radius or 8)
+	})
+end
 
-return Module
+local function stroke(color, thickness, transparency)
+	return create("UIStroke", {
+		Color = color,
+		Thickness = thickness or 1,
+		Transparency = transparency or 0
+	})
+end
+
+local function padding(left, right, top, bottom)
+	return create("UIPadding", {
+		PaddingLeft = UDim.new(0, left or 0),
+		PaddingRight = UDim.new(0, right or 0),
+		PaddingTop = UDim.new(0, top or 0),
+		PaddingBottom = UDim.new(0, bottom or 0)
+	})
+end
+
+local function tween(object, tweenInfo, properties)
+	local createdTween = TweenService:Create(object, tweenInfo, properties)
+	createdTween:Play()
+	return createdTween
+end
+
+local function makeDraggable(frame, handle)
+	local dragging = false
+	local dragStart = nil
+	local startPosition = nil
+
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPosition = frame.Position
+
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if not dragging then
+			return
+		end
+
+		if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+			return
+		end
+
+		local delta = input.Position - dragStart
+
+		frame.Position = UDim2.new(
+			startPosition.X.Scale,
+			startPosition.X.Offset + delta.X,
+			startPosition.Y.Scale,
+			startPosition.Y.Offset + delta.Y
+		)
+	end)
+end
+
+local Window = {}
+Window.__index = Window
+
+local Tab = {}
+Tab.__index = Tab
+
+local Section = {}
+Section.__index = Section
+
+function UILibrary.new(config)
+	config = config or {}
+
+	local self = setmetatable({}, Window)
+
+	self.Title = config.Title or "UI Library"
+	self.Subtitle = config.Subtitle or "Roblox UI"
+	self.Theme = mergeTheme(config.Theme)
+	self.Width = config.Width or 620
+	self.Height = config.Height or 430
+	self.Tabs = {}
+	self.ActiveTab = nil
+	self.Minimized = false
+	self.ToggleKey = config.ToggleKey or Enum.KeyCode.RightShift
+
+	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+	local oldGui = playerGui:FindFirstChild("UILibraryScreenGui")
+	if oldGui then
+		oldGui:Destroy()
+	end
+
+	self.ScreenGui = create("ScreenGui", {
+		Name = "UILibraryScreenGui",
+		IgnoreGuiInset = true,
+		ResetOnSpawn = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = playerGui
+	})
+
+	self.Main = create("Frame", {
+		Name = "Main",
+		Size = UDim2.fromOffset(self.Width, self.Height),
+		Position = UDim2.new(0.5, -self.Width / 2, 0.5, -self.Height / 2),
+		BackgroundColor3 = self.Theme.Background,
+		BorderSizePixel = 0,
+		Parent = self.ScreenGui
+	}, {
+		corner(12),
+		stroke(self.Theme.Stroke, 1, 0)
+	})
+
+	self.Topbar = create("Frame", {
+		Name = "Topbar",
+		Size = UDim2.new(1, 0, 0, 46),
+		BackgroundColor3 = self.Theme.BackgroundDark,
+		BorderSizePixel = 0,
+		Parent = self.Main
+	}, {
+		corner(12)
+	})
+
+	self.TopbarFix = create("Frame", {
+		Name = "TopbarFix",
+		Size = UDim2.new(1, 0, 0, 14),
+		Position = UDim2.new(0, 0, 1, -14),
+		BackgroundColor3 = self.Theme.BackgroundDark,
+		BorderSizePixel = 0,
+		Parent = self.Topbar
+	})
+
+	self.TitleLabel = create("TextLabel", {
+		Name = "Title",
+		Size = UDim2.new(1, -120, 0, 24),
+		Position = UDim2.fromOffset(16, 5),
+		BackgroundTransparency = 1,
+		Text = self.Title,
+		TextColor3 = self.Theme.Text,
+		TextSize = 16,
+		Font = Enum.Font.GothamBold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = self.Topbar
+	})
+
+	self.SubtitleLabel = create("TextLabel", {
+		Name = "Subtitle",
+		Size = UDim2.new(1, -120, 0, 18),
+		Position = UDim2.fromOffset(16, 25),
+		BackgroundTransparency = 1,
+		Text = self.Subtitle,
+		TextColor3 = self.Theme.TextMuted,
+		TextSize = 12,
+		Font = Enum.Font.Gotham,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = self.Topbar
+	})
+
+	self.CloseButton = create("TextButton", {
+		Name = "CloseButton",
+		Size = UDim2.fromOffset(30, 30),
+		Position = UDim2.new(1, -38, 0, 8),
+		BackgroundColor3 = self.Theme.BackgroundLight,
+		BorderSizePixel = 0,
+		Text = "×",
+		TextColor3 = self.Theme.Text,
+		TextSize = 18,
+		Font = Enum.Font.GothamBold,
+		AutoButtonColor = false,
+		Parent = self.Topbar
+	}, {
+		corner(8)
+	})
+
+	self.MinimizeButton = create("TextButton", {
+		Name = "MinimizeButton",
+		Size = UDim2.fromOffset(30, 30),
+		Position = UDim2.new(1, -74, 0, 8),
+		BackgroundColor3 = self.Theme.BackgroundLight,
+		BorderSizePixel = 0,
+		Text = "-",
+		TextColor3 = self.Theme.Text,
+		TextSize = 18,
+		Font = Enum.Font.GothamBold,
+		AutoButtonColor = false,
+		Parent = self.Topbar
+	}, {
+		corner(8)
+	})
+
+	self.Sidebar = create("Frame", {
+		Name = "Sidebar",
+		Size = UDim2.new(0, 160, 1, -46),
+		Position = UDim2.fromOffset(0, 46),
+		BackgroundColor3 = self.Theme.BackgroundDark,
+		BorderSizePixel = 0,
+		Parent = self.Main
+	})
+
+	self.SidebarLayout = create("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 6),
+		Parent = self.Sidebar
+	})
+
+	self.SidebarPadding = padding(10, 10, 10, 10)
+	self.SidebarPadding.Parent = self.Sidebar
+
+	self.Content = create("Frame", {
+		Name = "Content",
+		Size = UDim2.new(1, -160, 1, -46),
+		Position = UDim2.fromOffset(160, 46),
+		BackgroundColor3 = self.Theme.Background,
+		BorderSizePixel = 0,
+		Parent = self.Main
+	})
+
+	self.NotificationHolder = create("Frame", {
+		Name = "NotificationHolder",
+		Size = UDim2.fromOffset(320, 500),
+		Position = UDim2.new(1, -340, 0, 20),
+		BackgroundTransparency = 1,
+		Parent = self.ScreenGui
+	})
+
+	self.NotificationLayout = create("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 8),
+		VerticalAlignment = Enum.VerticalAlignment.Top,
+		Parent = self.NotificationHolder
+	})
+
+	makeDraggable(self.Main, self.Topbar)
+
+	self.CloseButton.MouseButton1Click:Connect(function()
+		self.ScreenGui:Destroy()
+	end)
+
+	self.MinimizeButton.MouseButton1Click:Connect(function()
+		self:SetMinimized(not self.Minimized)
+	end)
+
+	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
+
+		if input.KeyCode == self.ToggleKey then
+			self.ScreenGui.Enabled = not self.ScreenGui.Enabled
+		end
+	end)
+
+	return self
+end
+
+function Window:SetMinimized(state)
+	self.Minimized = state
+
+	if state then
+		self.MinimizeButton.Text = "+"
+		tween(self.Main, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.fromOffset(self.Width, 46)
+		})
+		self.Sidebar.Visible = false
+		self.Content.Visible = false
+	else
+		self.MinimizeButton.Text = "-"
+		self.Sidebar.Visible = true
+		self.Content.Visible = true
+		tween(self.Main, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.fromOffset(self.Width, self.Height)
+		})
+	end
+end
+
+function Window:Notify(config)
+	config = config or {}
+
+	local title = config.Title or "Notification"
+	local text = config.Text or ""
+	local duration = config.Duration or 3
+
+	local notification = create("Frame", {
+		Name = "Notification",
+		Size = UDim2.fromOffset(320, 82),
+		BackgroundColor3 = self.Theme.Background,
+		BorderSizePixel = 0,
+		BackgroundTransparency = 1,
+		Parent = self.NotificationHolder
+	}, {
+		corner(10),
+		stroke(self.Theme.Stroke, 1, 0)
+	})
+
+	local accent = create("Frame", {
+		Name = "Accent",
+		Size = UDim2.new(0, 4, 1, -16),
+		Position = UDim2.fromOffset(8, 8),
+		BackgroundColor3 = self.Theme.Accent,
+		BorderSizePixel = 0,
+		Parent = notification
+	}, {
+		corner(4)
+	})
+
+	local titleLabel = create("TextLabel", {
+		Name = "Title",
+		Size = UDim2.new(1, -34, 0, 24),
+		Position = UDim2.fromOffset(22, 9),
+		BackgroundTransparency = 1,
+		Text = title,
+		TextColor3 = self.Theme.Text,
+		TextSize = 14,
+		Font = Enum.Font.GothamBold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = notification
+	})
+
+	local textLabel = create("TextLabel", {
+		Name = "Text",
+		Size = UDim2.new(1, -34, 0, 38),
+		Position = UDim2.fromOffset(22, 34),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = self.Theme.TextMuted,
+		TextSize = 12,
+		Font = Enum.Font.Gotham,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Parent = notification
+	})
+
+	tween(notification, TweenInfo.new(0.2), {
+		BackgroundTransparency = 0
+	})
+
+	task.delay(duration, function()
+		if notification and notification.Parent then
+			tween(notification, TweenInfo.new(0.2), {
+				BackgroundTransparency = 1
+			})
+
+			task.wait(0.22)
+
+			if notification then
+				notification:Destroy()
+			end
+		end
+	end)
+end
+
+function Window:CreateTab(name)
+	local tab = setmetatable({}, Tab)
+
+	tab.Window = self
+	tab.Name = name
+	tab.Sections = {}
+
+	tab.Button = create("TextButton", {
+		Name = name .. "Button",
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundColor3 = self.Theme.BackgroundLight,
+		BorderSizePixel = 0,
+		Text = name,
+		TextColor3 = self.Theme.TextMuted,
+		TextSize = 13,
+		Font = Enum.Font.GothamBold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		AutoButtonColor = false,
+		Parent = self.Sidebar
+	}, {
+		corner(8),
+		padding(12, 12, 0, 0)
+	})
+
+	tab.Page = create("ScrollingFrame", {
+		Name = name .. "Page",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 4,
+		ScrollBarImageColor3 = self.Theme.Accent,
+		CanvasSize = UDim2.fromOffset(0, 0),
+		Visible = false,
+		Parent = self.Content
+	})
+
+	tab.PageLayout = create("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 10),
+		Parent = tab.Page
+	})
+
+	tab.PagePadding = padding(12, 12, 12, 12)
+	tab.PagePadding.Parent = tab.Page
+
+	tab.PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		tab.Page.CanvasSize = UDim2.fromOffset(0, tab.PageLayout.AbsoluteContentSize.Y + 24)
+	end)
+
+	tab.Button.MouseButton1Click:Connect(function()
+		self:SelectTab(tab)
+	end)
+
+	table.insert(self.Tabs, tab)
+
+	if not self.ActiveTab then
+		self:SelectTab(tab)
+	end
+
+	return tab
+end
+
+function Window:SelectTab(tab)
+	for _, otherTab in ipairs(self.Tabs) do
+		otherTab.Page.Visible = false
+		otherTab.Button.TextColor3 = self.Theme.TextMuted
+		otherTab.Button.BackgroundColor3 = self.Theme.BackgroundLight
+	end
+
+	self.ActiveTab = tab
+	tab.Page.Visible = true
+	tab.Button.TextColor3 = self.Theme.Text
+	tab.Button.BackgroundColor3 = self.Theme.Accent
+end
+
+function Tab:CreateSection(name)
+	local section = setmetatable({}, Section)
+
+	section.Tab = self
+	section.Window = self.Window
+	section.Name = name
+
+	section.Frame = create("Frame", {
+		Name = name .. "Section",
+		Size = UDim2.new(1, 0, 0, 40),
+		BackgroundColor3 = self.Window.Theme.BackgroundLight,
+		BorderSizePixel = 0,
+		Parent = self.Page
+	}, {
+		corner(10),
+		stroke(self.Window.Theme.Stroke, 1, 0)
+	})
+
+	section.Title = create("TextLabel", {
+		Name = "Title",
+		Size = UDim2.new(1, -20, 0, 32),
+		Position = UDim2.fromOffset(10, 4),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = self.Window.Theme.Text,
+		TextSize = 14,
+		Font = Enum.Font.GothamBold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = section.Frame
+	})
+
+	section.Content = create("Frame", {
+		Name = "Content",
+		Size = UDim2.new(1, -20, 0, 0),
+		Position = UDim2.fromOffset(10, 38),
+		BackgroundTransparency = 1,
+		Parent = section.Frame
+	})
+
+	section.Layout = create("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 8),
+		Parent = section.Content
+	})
+
+	section.Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		section.Content.Size = UDim2.new(1, -20, 0, section.Layout.AbsoluteContentSize.Y)
+		section.Frame.Size = UDim2.new(1, 0, 0, section.Layout.AbsoluteContentSize.Y + 50)
+	end)
+
+	table.insert(self.Sections, section)
+
+	return section
+end
+
+function Section:AddButton(config)
+	config = config or {}
+
+	local text = config.Text or "Button"
+	local callback = config.Callback or function() end
+
+	local button = create("TextButton", {
+		Name = text .. "Button",
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundColor3 = self.Window.Theme.BackgroundDark,
+		BorderSizePixel = 0,
+		Text = text,
+		TextColor3 = self.Window.Theme.Text,
+		TextSize = 13,
+		Font = Enum.Font.GothamBold,
+		AutoButtonColor = false,
+		Parent = self.Content
+	}, {
+		corner(8),
+		stroke(self.Window.Theme.Stroke, 1, 0)
+	})
+
+	button.MouseEnter:Connect(function()
+		tween(button, TweenInfo.new(0.15), {
+			BackgroundColor3 = self.Window.Theme.AccentDark
+		})
+	end)
+
+	button.MouseLeave:Connect(function()
+		tween(button, TweenInfo.new(0.15), {
+			BackgroundColor3 = self.Window.Theme.BackgroundDark
+		})
+	end)
+
+	button.MouseButton1Click:Connect(function()
+		tween(button, TweenInfo.new(0.08), {
+			Size = UDim2.new(1, -4, 0, 34)
+		})
+
+		task.delay(0.08, function()
+			if button and button.Parent then
+				tween(button, TweenInfo.new(0.08), {
+					Size = UDim2.new(1, 0, 0, 36)
+				})
+			end
+		end)
+
+		local ok, err = pcall(callback)
+
+		if not ok then
+			warn("[UILibrary Button Error]", err)
+		end
+	end)
+
+	return button
+end
+
+function Section:AddToggle(config)
+	config = config or {}
+
+	local text = config.Text or "Toggle"
+	local default = config.Default or false
+	local callback = config.Callback or function() end
+
+	local state = default
+
+	local holder = create("Frame", {
+		Name = text .. "Toggle",
+		Size = UDim2.new(1, 0, 0, 40),
+		BackgroundColor3 = self.Window.Theme.BackgroundDark,
+		BorderSizePixel = 0,
+		Parent = self.Content
+	}, {
+		corner(8),
+		stroke(self.Window.Theme.Stroke, 1, 0)
+	})
+
+	local label = create("TextLabel", {
+		Name = "Label",
+		Size = UDim2.new(1, -70, 1, 0),
+		Position = UDim2.fromOffset(12, 0),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = self.Window.Theme.Text,
+		TextSize = 13,
+		Font = Enum.Font.Gotham,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = holder
+	})
+
+	local toggleButton = create("TextButton", {
+		Name = "ToggleButton",
+		Size = UDim2.fromOffset(46, 22),
+		Position = UDim2.new(1, -58, 0.5, -11),
+		BackgroundColor3 = state and self.Window.Theme.Accent or self.Window.Theme.BackgroundLight,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+		Parent = holder
+	}, {
+		corner(12)
+	})
+
+	local knob = create("Frame", {
+		Name = "Knob",
+		Size = UDim2.fromOffset(18, 18),
+		Position = state and UDim2.fromOffset(25, 2) or UDim2.fromOffset(3, 2),
+		BackgroundColor3 = self.Window.Theme.Text,
+		BorderSizePixel = 0,
+		Parent = toggleButton
+	}, {
+		corner(10)
+	})
+
+	local function setToggle(value)
+		state = value
+
+		tween(toggleButton, TweenInfo.new(0.15), {
+			BackgroundColor3 = state and self.Window.Theme.Accent or self.Window.Theme.BackgroundLight
+		})
+
+		tween(knob, TweenInfo.new(0.15), {
+			Position = state and UDim2.fromOffset(25, 2) or UDim2.fromOffset(3, 2)
+		})
+
+		local ok, err = pcall(function()
+			callback(state)
+		end)
+
+		if not ok then
+			warn("[UILibrary Toggle Error]", err)
+		end
+	end
+
+	toggleButton.MouseButton1Click:Connect(function()
+		setToggle(not state)
+	end)
+
+	holder.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			setToggle(not state)
+		end
+	end)
+
+	return {
+		Set = setToggle,
+		Get = function()
+			return state
+		end,
+		Instance = holder
+	}
+end
+
+function Section:AddSlider(config)
+	config = config or {}
+
+	local text = config.Text or "Slider"
+	local min = config.Min or 0
+	local max = config.Max or 100
+	local default = config.Default or min
+	local rounding = config.Rounding or 0
+	local callback = config.Callback or function() end
+
+	local value = math.clamp(default, min, max)
+	local dragging = false
+
+	local holder = create("Frame", {
+		Name = text .. "Slider",
+		Size = UDim2.new(1, 0, 0, 58),
+		BackgroundColor3 = self.Window.Theme.BackgroundDark,
+		BorderSizePixel = 0,
+		Parent = self.Content
+	}, {
+		corner(8),
+		stroke(self.Window.Theme.Stroke, 1, 0)
+	})
+
+	local label = create("TextLabel", {
+		Name = "Label",
+		Size = UDim2.new(1, -90, 0, 26),
+		Position = UDim2.fromOffset(12, 4),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = self.Window.Theme.Text,
+		TextSize = 13,
+		Font = Enum.Font.Gotham,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = holder
+	})
+
+	local valueLabel = create("TextLabel", {
+		Name = "Value",
+		Size = UDim2.fromOffset(70, 26),
+		Position = UDim2.new(1, -82, 0, 4),
+		BackgroundTransparency = 1,
+		Text = tostring(value),
+		TextColor3 = self.Window.Theme.TextMuted,
+		TextSize = 13,
+		Font = Enum.Font.GothamBold,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = holder
+	})
+
+	local bar = create("Frame", {
+		Name = "Bar",
+		Size = UDim2.new(1, -24, 0, 8),
+		Position = UDim2.fromOffset(12, 38),
+		BackgroundColor3 = self.Window.Theme.BackgroundLight,
+		BorderSizePixel = 0,
+		Parent = holder
+	}, {
+		corner(8)
+	})
+
+	local fill = create("Frame", {
+		Name = "Fill",
+		Size = UDim2.new((value - min) / (max - min), 0, 1, 0),
+		BackgroundColor3 = self.Window.Theme.Accent,
+		BorderSizePixel = 0,
+		Parent = bar
+	}, {
+		corner(8)
+	})
+
+	local function roundNumber(number)
+		local multiplier = 10 ^ rounding
+		return math.floor(number * multiplier + 0.5) / multiplier
+	end
+
+	local function setSliderFromX(x)
+		local percent = math.clamp((x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+		value = roundNumber(min + ((max - min) * percent))
+
+		valueLabel.Text = tostring(value)
+
+		tween(fill, TweenInfo.new(0.08), {
+			Size = UDim2.new(percent, 0, 1, 0)
+		})
+
+		local ok, err = pcall(function()
+			callback(value)
+		end)
+
+		if not ok then
+			warn("[UILibrary Slider Error]", err)
+		end
+	end
+
+	bar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			setSliderFromX(input.Position.X)
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			setSliderFromX(input.Position.X)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+
+	return {
+		Set = function(newValue)
+			value = math.clamp(newValue, min, max)
+			local percent = (value - min) / (max - min)
+			valueLabel.Text = tostring(value)
+			fill.Size = UDim2.new(percent, 0, 1, 0)
+			callback(value)
+		end,
+		Get = function()
+			return value
+		end,
+		Instance = holder
+	}
+end
+
+function Section:AddTextbox(config)
+	config = config or {}
+
+	local text = config.Text or "Textbox"
+	local placeholder = config.Placeholder or "Type here..."
+	local default = config.Default or ""
+	local clearOnFocus = config.ClearOnFocus or false
+	local callback = config.Callback or function() end
+
+	local holder = create("Frame", {
+		Name = text .. "Textbox",
+		Size = UDim2.new(1, 0, 0, 46),
+		BackgroundColor3 = self.Window.Theme.BackgroundDark,
+		BorderSizePixel = 0,
+		Parent = self.Content
+	}, {
+		corner(8),
+		stroke(self.Window.Theme.Stroke, 1, 0)
+	})
+
+	local label = create("TextLabel", {
+		Name = "Label",
+		Size = UDim2.new(0.42, -16, 1, 0),
+		Position = UDim2.fromOffset(12, 0),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = self.Window.Theme.Text,
+		TextSize = 13,
+		Font = Enum.Font.Gotham,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = holder
+	})
+
+	local box = create("TextBox", {
+		Name = "Input",
+		Size = UDim2.new(0.58, -18, 0, 30),
+		Position = UDim2.new(0.42, 6, 0.5, -15),
+		BackgroundColor3 = self.Window.Theme.BackgroundLight,
+		BorderSizePixel = 0,
+		Text = default,
+		PlaceholderText = placeholder,
+		TextColor3 = self.Window.Theme.Text,
+		PlaceholderColor3 = self.Window.Theme.TextMuted,
+		TextSize = 13,
+		Font = Enum.Font.Gotham,
+		ClearTextOnFocus = clearOnFocus,
+		Parent = holder
+	}, {
+		corner(7),
+		padding(8, 8, 0, 0)
+	})
+
+	box.FocusLost:Connect(function(enterPressed)
+		local ok, err = pcall(function()
+			callback(box.Text, enterPressed)
+		end)
+
+		if not ok then
+			warn("[UILibrary Textbox Error]", err)
+		end
+	end)
+
+	return {
+		Set = function(newText)
+			box.Text = tostring(newText)
+		end,
+		Get = function()
+			return box.Text
+		end,
+		Instance = holder,
+		TextBox = box
+	}
+end
+
+function Section:AddDropdown(config)
+	config = config or {}
+
+	local text = config.Text or "Dropdown"
+	local options = config.Options or {}
+	local default = config.Default
+	local callback = config.Callback or function() end
+
+	local selected = default or options[1]
+	local open = false
+
+	local holder = create("Frame", {
+		Name = text .. "Dropdown",
+		Size = UDim2.new(1, 0, 0, 44),
+		BackgroundColor3 = self.Window.Theme.BackgroundDark,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		Parent = self.Content
+	}, {
+		corner(8),
+		stroke(self.Window.Theme.Stroke, 1, 0)
+	})
+
+	local button = create("TextButton", {
+		Name = "Button",
+		Size = UDim2.new(1, 0, 0, 44),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		Parent = holder
+	})
+
+	local label = create("TextLabel", {
+		Name = "Label",
+		Size = UDim2.new(0.42, -16, 0, 44),
+		Position = UDim2.fromOffset(12, 0),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = self.Window.Theme.Text,
+		TextSize = 13,
+		Font = Enum.Font.Gotham,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = holder
+	})
+
+	local selectedLabel = create("TextLabel", {
+		Name = "Selected",
+		Size = UDim2.new(0.58, -44, 0, 44),
+		Position = UDim2.new(0.42, 6, 0, 0),
+		BackgroundTransparency = 1,
+		Text = tostring(selected or "None"),
+		TextColor3 = self.Window.Theme.TextMuted,
+		TextSize = 13,
+		Font = Enum.Font.GothamBold,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = holder
+	})
+
+	local arrow = create("TextLabel", {
+		Name = "Arrow",
+		Size = UDim2.fromOffset(24, 44),
+		Position = UDim2.new(1, -34, 0, 0),
+		BackgroundTransparency = 1,
+		Text = "▼",
+		TextColor3 = self.Window.Theme.TextMuted,
+		TextSize = 12,
+		Font = Enum.Font.GothamBold,
+		Parent = holder
+	})
+
+	local list = create("Frame", {
+		Name = "List",
+		Size = UDim2.new(1, -20, 0, 0),
+		Position = UDim2.fromOffset(10, 48),
+		BackgroundTransparency = 1,
+		Parent = holder
+	})
+
+	local listLayout = create("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 6),
+		Parent = list
+	})
+
+	local function resize()
+		local listHeight = listLayout.AbsoluteContentSize.Y
+
+		if open then
+			holder.Size = UDim2.new(1, 0, 0, 58 + listHeight)
+			list.Size = UDim2.new(1, -20, 0, listHeight)
+			arrow.Text = "▲"
+		else
+			holder.Size = UDim2.new(1, 0, 0, 44)
+			arrow.Text = "▼"
+		end
+	end
+
+	local function refreshOptions(newOptions)
+		options = newOptions or options
+
+		for _, child in ipairs(list:GetChildren()) do
+			if child:IsA("TextButton") then
+				child:Destroy()
+			end
+		end
+
+		for _, option in ipairs(options) do
+			local optionButton = create("TextButton", {
+				Name = tostring(option),
+				Size = UDim2.new(1, 0, 0, 30),
+				BackgroundColor3 = self.Window.Theme.BackgroundLight,
+				BorderSizePixel = 0,
+				Text = tostring(option),
+				TextColor3 = self.Window.Theme.Text,
+				TextSize = 13,
+				Font = Enum.Font.Gotham,
+				AutoButtonColor = false,
+				Parent = list
+			}, {
+				corner(7)
+			})
+
+			optionButton.MouseButton1Click:Connect(function()
+				selected = option
+				selectedLabel.Text = tostring(option)
+				open = false
+				resize()
+
+				local ok, err = pcall(function()
+					callback(option)
+				end)
+
+				if not ok then
+					warn("[UILibrary Dropdown Error]", err)
+				end
+			end)
+		end
+
+		task.defer(resize)
+	end
+
+	button.MouseButton1Click:Connect(function()
+		open = not open
+		resize()
+	end)
+
+	refreshOptions(options)
+
+	return {
+		Set = function(option)
+			selected = option
+			selectedLabel.Text = tostring(option)
+			callback(option)
+		end,
+		Get = function()
+			return selected
+		end,
+		Refresh = refreshOptions,
+		Instance = holder
+	}
+end
+
+function Section:AddKeybind(config)
+	config = config or {}
+
+	local text = config.Text or "Keybind"
+	local default = config.Default or Enum.KeyCode.F
+	local callback = config.Callback or function() end
+
+	local currentKey = default
+	local listening = false
+
+	local holder = create("Frame", {
+		Name = text .. "Keybind",
+		Size = UDim2.new(1, 0, 0, 42),
+		BackgroundColor3 = self.Window.Theme.BackgroundDark,
+		BorderSizePixel = 0,
+		Parent = self.Content
+	}, {
+		corner(8),
+		stroke(self.Window.Theme.Stroke, 1, 0)
+	})
+
+	local label = create("TextLabel", {
+		Name = "Label",
+		Size = UDim2.new(1, -130, 1, 0),
+		Position = UDim2.fromOffset(12, 0),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = self.Window.Theme.Text,
+		TextSize = 13,
+		Font = Enum.Font.Gotham,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = holder
+	})
+
+	local keyButton = create("TextButton", {
+		Name = "KeyButton",
+		Size = UDim2.fromOffset(100, 28),
+		Position = UDim2.new(1, -112, 0.5, -14),
+		BackgroundColor3 = self.Window.Theme.BackgroundLight,
+		BorderSizePixel = 0,
+		Text = currentKey.Name,
+		TextColor3 = self.Window.Theme.Text,
+		TextSize = 12,
+		Font = Enum.Font.GothamBold,
+		AutoButtonColor = false,
+		Parent = holder
+	}, {
+		corner(7)
+	})
+
+	keyButton.MouseButton1Click:Connect(function()
+		listening = true
+		keyButton.Text = "..."
+	end)
+
+	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
+
+		if listening then
+			if input.KeyCode ~= Enum.KeyCode.Unknown then
+				currentKey = input.KeyCode
+				keyButton.Text = currentKey.Name
+				listening = false
+			end
+
+			return
+		end
+
+		if input.KeyCode == currentKey then
+			local ok, err = pcall(callback)
+
+			if not ok then
+				warn("[UILibrary Keybind Error]", err)
+			end
+		end
+	end)
+
+	return {
+		Set = function(newKey)
+			currentKey = newKey
+			keyButton.Text = currentKey.Name
+		end,
+		Get = function()
+			return currentKey
+		end,
+		Instance = holder
+	}
+end
+
+return UILibrary
